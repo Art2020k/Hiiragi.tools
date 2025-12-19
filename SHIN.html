@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SHIN | Deep Bass Resonance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Fonts: Shippori Mincho (Kanji), Tenor Sans (English), Jost (Numbers) */
+        @import url('https://fonts.googleapis.com/css2?family=Jost:wght@200;300;400&family=Manrope:wght@300;400&family=Shippori+Mincho:wght@400&family=Tenor+Sans&display=swap');
+
+        :root {
+            --bg: #030303;
+            --text: #F2F2F2;
+            --sub: #666666;
+            --line: #2A2A2A;
+            --active: #FFFFFF;
+            
+            --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+            cursor: default; /* Fallback */
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* --- Typography Classes --- */
+        .font-kanji { font-family: 'Shippori Mincho', serif; }
+        .font-display { font-family: 'Tenor Sans', sans-serif; }
+        .font-num { 
+            font-family: 'Jost', sans-serif; 
+            font-variant-numeric: tabular-nums; 
+            letter-spacing: -0.02em;
+        }
+
+        /* --- Vignette Overlay (Focus Effect) --- */
+        #vignette {
+            position: fixed;
+            inset: 0;
+            z-index: 5;
+            pointer-events: none;
+            background: radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.8) 100%);
+        }
+
+        /* --- Intro Overlay --- */
+        #intro {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background-color: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 1.5s var(--ease-smooth), visibility 1.5s;
+            cursor: pointer;
+        }
+        #intro.hidden-intro {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .morph-container {
+            position: relative;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .char-kanji {
+            font-size: 5rem;
+            color: var(--text);
+            position: absolute;
+            opacity: 1;
+            filter: blur(0px);
+            transition: all 1.4s cubic-bezier(0.55, 0, 0.1, 1);
+        }
+        .char-eng {
+            font-family: 'Tenor Sans', sans-serif;
+            font-size: 3rem;
+            letter-spacing: 0.4em;
+            color: var(--text);
+            position: absolute;
+            opacity: 0;
+            filter: blur(12px);
+            transform: scale(0.9);
+            transition: all 1.4s cubic-bezier(0.55, 0, 0.1, 1);
+        }
+        .morphed .char-kanji { opacity: 0; filter: blur(24px); transform: scale(1.1); }
+        .morphed .char-eng { opacity: 1; filter: blur(0px); transform: scale(1); }
+
+        .click-guide {
+            margin-top: 40px;
+            font-family: 'Tenor Sans', sans-serif;
+            font-size: 10px;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            color: var(--sub);
+            opacity: 0;
+            animation: fadeInGuide 1.5s ease 1.5s forwards;
+            transition: color 0.4s;
+        }
+        .click-guide:hover { color: var(--text); }
+        @keyframes fadeInGuide { to { opacity: 1; } }
+
+        /* --- Main UI Layout --- */
+        #ui-layer {
+            position: relative;
+            z-index: 10;
+            height: 100vh;
+            width: 100vw;
+            display: grid;
+            grid-template-rows: 80px 1fr 240px;
+            opacity: 0;
+            transition: opacity 2s ease 0.5s;
+        }
+        #ui-layer.visible { opacity: 1; }
+
+        /* Header */
+        header {
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .brand {
+            font-size: 11px;
+            letter-spacing: 0.25em;
+            color: var(--sub);
+        }
+
+        /* Center Stage */
+        .stage {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4rem;
+        }
+
+        .hz-display {
+            text-align: center;
+            z-index: 5;
+        }
+        .hz-value {
+            font-size: 7.5rem;
+            font-weight: 200; 
+            line-height: 0.9;
+            color: var(--text);
+            transition: color 0.3s;
+        }
+        .hz-unit {
+            font-size: 0.8rem;
+            letter-spacing: 0.3em;
+            color: var(--sub);
+            margin-top: 0.8rem;
+            display: block;
+        }
+
+        /* The Horizon Line (Play Button) */
+        .horizon-container {
+            width: 100%;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 20;
+        }
+        .horizon-line {
+            width: 60px;
+            height: 1px;
+            background-color: var(--text);
+            transition: width 0.8s var(--ease-smooth), opacity 0.4s;
+        }
+        .horizon-container:hover .horizon-line {
+            width: 120px;
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+        }
+        .playing .horizon-line {
+            opacity: 0; 
+            width: 100%;
+        }
+
+        /* Footer Controls */
+        .controls {
+            padding: 0 3rem 3rem 3rem;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 3rem;
+        }
+
+        /* Sliders */
+        .slider-container {
+            position: relative;
+            width: 100%;
+        }
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            color: var(--sub);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+        
+        .track-bg {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background-color: var(--line);
+        }
+        .track-fill {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 0%;
+            height: 1px;
+            background-color: var(--text);
+            transition: width 0.1s linear;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            cursor: pointer;
+            position: relative;
+            z-index: 2;
+            height: 40px;
+            margin-top: -10px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 12px;
+            width: 1px;
+            background: var(--text);
+            border: none;
+            transition: transform 0.2s, height 0.2s;
+        }
+        input[type=range]:hover::-webkit-slider-thumb {
+            transform: scaleY(2);
+            height: 12px;
+            background: #FFF;
+        }
+        input[type=range]:focus { outline: none; }
+
+        /* Wave Selector */
+        .wave-selector {
+            display: flex;
+            gap: 3rem;
+            justify-content: center;
+            padding-bottom: 1rem;
+        }
+        .wave-btn {
+            font-size: 10px;
+            letter-spacing: 0.25em;
+            color: var(--sub);
+            cursor: pointer;
+            transition: color 0.4s var(--ease-smooth);
+            padding: 8px;
+            position: relative;
+            font-weight: 300;
+        }
+        .wave-btn::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 1px;
+            background-color: var(--text);
+            transition: width 0.4s var(--ease-smooth);
+        }
+        .wave-btn.active { color: var(--text); }
+        .wave-btn.active::after { width: 100%; }
+
+        /* Visualizer Canvas */
+        #visualizer-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Intro -->
+    <div id="intro">
+        <div class="morph-container">
+            <span class="char-kanji font-kanji">震</span>
+            <span class="char-eng font-display">SHIN</span>
+        </div>
+        <div class="click-guide font-display">Initialize Resonance</div>
+    </div>
+
+    <!-- Background Canvas -->
+    <canvas id="visualizer-canvas"></canvas>
+    
+    <!-- Vignette Overlay -->
+    <div id="vignette"></div>
+
+    <!-- UI -->
+    <div id="ui-layer">
+        
+        <!-- Header -->
+        <header>
+            <div class="brand font-display">SHIN</div>
+            <div id="statusText" class="brand font-display" style="text-align: right;">STANDBY</div>
+        </header>
+
+        <!-- Center Stage -->
+        <div class="stage">
+            
+            <!-- Frequency Display -->
+            <div class="hz-display">
+                <div class="hz-value font-num" id="hzDisplay">40.0</div>
+                <span class="hz-unit font-display">HERTZ</span>
+            </div>
+
+            <!-- Play Button (Horizon Line) -->
+            <div id="playBtn" class="horizon-container">
+                <div class="horizon-line"></div>
+            </div>
+
+        </div>
+
+        <!-- Footer Controls -->
+        <div class="controls">
+            
+            <!-- Wave Selector -->
+            <div class="wave-selector font-display">
+                <button class="wave-btn active" data-wave="sine">PURE</button>
+                <button class="wave-btn" data-wave="triangle">WARM</button>
+                <button class="wave-btn" data-wave="square">HEAVY</button>
+            </div>
+
+            <!-- Frequency Slider -->
+            <div class="slider-container">
+                <div class="slider-label font-display">
+                    <span>20Hz</span>
+                    <span>Frequency</span>
+                    <span>100Hz</span>
+                </div>
+                <div class="track-bg"></div>
+                <div id="freqFill" class="track-fill" style="width: 25%"></div>
+                <input type="range" id="freqSlider" min="20" max="100" step="0.1" value="40">
+            </div>
+
+            <!-- Pulse Slider -->
+            <div class="slider-container">
+                <div class="slider-label font-display">
+                    <span>Static</span>
+                    <span>Pulse</span>
+                    <span>Deep</span>
+                </div>
+                <div class="track-bg"></div>
+                <div id="pulseFill" class="track-fill" style="width: 0%"></div>
+                <input type="range" id="pulseSlider" min="0" max="1" step="0.01" value="0">
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        /**
+         * SHIN - Core Logic
+         * With Subtle Pointer Glow
+         */
+
+        const state = {
+            isPlaying: false,
+            freq: 40.0,
+            targetFreq: 40.0,
+            pulse: 0.0,
+            targetPulse: 0.0,
+            wave: 'sine',
+            audioCtx: null,
+            nodes: {},
+            // Pointer State for Glow Effect
+            pointer: { x: -500, y: -500, active: false, opacity: 0, targetOpacity: 0 }
+        };
+
+        const dom = {
+            intro: document.getElementById('intro'),
+            morphContainer: document.querySelector('.morph-container'),
+            ui: document.getElementById('ui-layer'),
+            hzDisplay: document.getElementById('hzDisplay'),
+            statusText: document.getElementById('statusText'),
+            playBtn: document.getElementById('playBtn'),
+            horizonLine: document.querySelector('.horizon-line'),
+            freqSlider: document.getElementById('freqSlider'),
+            freqFill: document.getElementById('freqFill'),
+            pulseSlider: document.getElementById('pulseSlider'),
+            pulseFill: document.getElementById('pulseFill'),
+            waveBtns: document.querySelectorAll('.wave-btn'),
+            canvas: document.getElementById('visualizer-canvas')
+        };
+
+        // --- 1. Audio Engine ---
+        const AudioEngine = {
+            init: () => {
+                if (state.audioCtx) return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                state.audioCtx = new AudioContext();
+                
+                state.nodes.master = state.audioCtx.createGain();
+                state.nodes.master.gain.value = 0; 
+
+                state.nodes.analyser = state.audioCtx.createAnalyser();
+                state.nodes.analyser.fftSize = 4096;
+                state.nodes.analyser.smoothingTimeConstant = 0.5;
+
+                state.nodes.master.connect(state.nodes.analyser);
+                state.nodes.analyser.connect(state.audioCtx.destination);
+
+                AudioEngine.setupOscillators();
+            },
+
+            setupOscillators: () => {
+                const ctx = state.audioCtx;
+                const now = ctx.currentTime;
+
+                const osc = ctx.createOscillator();
+                osc.frequency.setValueAtTime(state.freq, now);
+                
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(200, now);
+
+                const lfo = ctx.createOscillator();
+                lfo.frequency.setValueAtTime(0.2, now);
+                
+                const lfoGain = ctx.createGain();
+                lfoGain.gain.setValueAtTime(0, now);
+
+                const amp = ctx.createGain();
+                amp.gain.setValueAtTime(1, now);
+
+                lfo.connect(lfoGain).connect(amp.gain);
+                osc.connect(filter).connect(amp).connect(state.nodes.master);
+
+                osc.start();
+                lfo.start();
+
+                state.nodes.osc = osc;
+                state.nodes.filter = filter;
+                state.nodes.lfo = lfo;
+                state.nodes.lfoGain = lfoGain;
+                state.nodes.amp = amp;
+
+                AudioEngine.updateWaveType();
+            },
+
+            update: () => {
+                if (!state.audioCtx) return;
+                const now = state.audioCtx.currentTime;
+                const smooth = 0.1;
+
+                state.nodes.osc.frequency.setTargetAtTime(state.freq, now, smooth);
+                state.nodes.filter.frequency.setTargetAtTime(state.freq * 4, now, smooth);
+                state.nodes.lfoGain.gain.setTargetAtTime(state.pulse * 0.5, now, smooth);
+            },
+
+            setWave: (type) => {
+                state.wave = type;
+                AudioEngine.updateWaveType();
+            },
+
+            updateWaveType: () => {
+                if(!state.nodes.osc) return;
+                const type = state.wave;
+                const now = state.audioCtx.currentTime;
+
+                if (type === 'sine') {
+                    state.nodes.osc.type = 'sine';
+                    state.nodes.filter.frequency.setTargetAtTime(200, now, 0.2);
+                } else if (type === 'triangle') {
+                    state.nodes.osc.type = 'triangle';
+                    state.nodes.filter.frequency.setTargetAtTime(state.freq * 3, now, 0.2);
+                } else if (type === 'square') {
+                    state.nodes.osc.type = 'square';
+                    state.nodes.filter.frequency.setTargetAtTime(state.freq * 2, now, 0.2);
+                }
+            },
+
+            toggle: (play) => {
+                if(!state.audioCtx) AudioEngine.init();
+                if(state.audioCtx.state === 'suspended') state.audioCtx.resume();
+
+                const now = state.audioCtx.currentTime;
+                if(play) {
+                    state.nodes.master.gain.setTargetAtTime(1, now, 2); 
+                } else {
+                    state.nodes.master.gain.setTargetAtTime(0, now, 0.5);
+                }
+            }
+        };
+
+        // --- 2. Visual Engine ---
+        const VisualEngine = {
+            ctx: null,
+            width: 0,
+            height: 0,
+            time: 0,
+            dataArray: null,
+
+            init: () => {
+                VisualEngine.ctx = dom.canvas.getContext('2d');
+                VisualEngine.resize();
+                window.addEventListener('resize', VisualEngine.resize);
+                VisualEngine.loop();
+            },
+
+            resize: () => {
+                VisualEngine.width = dom.canvas.width = window.innerWidth;
+                VisualEngine.height = dom.canvas.height = window.innerHeight;
+            },
+
+            loop: () => {
+                const ctx = VisualEngine.ctx;
+                const w = VisualEngine.width;
+                const h = VisualEngine.height;
+                const btnRect = dom.playBtn.getBoundingClientRect();
+                const centerY = btnRect.top + (btnRect.height / 2);
+
+                ctx.clearRect(0, 0, w, h);
+
+                // --- 1. Draw Pointer Glow ---
+                // Smoothly transition opacity
+                const opDiff = state.pointer.targetOpacity - state.pointer.opacity;
+                if (Math.abs(opDiff) > 0.01) state.pointer.opacity += opDiff * 0.1;
+                else state.pointer.opacity = state.pointer.targetOpacity;
+
+                if (state.pointer.opacity > 0.01) {
+                    // Very subtle radial gradient
+                    const x = state.pointer.x;
+                    const y = state.pointer.y;
+                    const radius = 250; // Wide soft glow
+                    
+                    const grad = ctx.createRadialGradient(x, y, 0, x, y, radius);
+                    // Extremely subtle white/blueish tint
+                    grad.addColorStop(0, `rgba(255, 255, 255, ${0.04 * state.pointer.opacity})`);
+                    grad.addColorStop(0.5, `rgba(255, 255, 255, ${0.01 * state.pointer.opacity})`);
+                    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // --- 2. UI Smoothing ---
+                const diffFreq = state.targetFreq - state.freq;
+                if (Math.abs(diffFreq) > 0.01) {
+                    state.freq += diffFreq * 0.15;
+                    AudioEngine.update();
+                    dom.hzDisplay.innerText = state.freq.toFixed(1);
+                    const p = ((state.freq - 20) / (100 - 20)) * 100;
+                    dom.freqFill.style.width = `${p}%`;
+                }
+
+                const diffPulse = state.targetPulse - state.pulse;
+                if (Math.abs(diffPulse) > 0.001) {
+                    state.pulse += diffPulse * 0.1;
+                    AudioEngine.update();
+                    dom.pulseFill.style.width = `${state.pulse * 100}%`;
+                }
+
+                // --- 3. Amplitude Calc ---
+                let currentAmp = 0;
+                if (state.nodes.analyser) {
+                    if (!VisualEngine.dataArray) {
+                        VisualEngine.dataArray = new Uint8Array(state.nodes.analyser.frequencyBinCount);
+                    }
+                    state.nodes.analyser.getByteTimeDomainData(VisualEngine.dataArray);
+                    
+                    let sum = 0;
+                    for (let i = 0; i < VisualEngine.dataArray.length; i++) {
+                        const v = (VisualEngine.dataArray[i] - 128) / 128.0; 
+                        sum += v * v;
+                    }
+                    currentAmp = Math.sqrt(sum / VisualEngine.dataArray.length);
+                }
+
+                if (currentAmp < 0.002) currentAmp = 0;
+
+                // --- 4. Draw Horizon ---
+                VisualEngine.time += 0.05 + (state.freq / 1000);
+
+                if (currentAmp > 0) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = '#FFFFFF';
+                    ctx.lineWidth = 1;
+
+                    ctx.moveTo(0, centerY);
+
+                    // Full width visualization
+                    const lfoMod = Math.sin(Date.now() * 0.001) * state.pulse; 
+                    const visualAmp = currentAmp * (50 + lfoMod * 20);
+
+                    for (let x = 0; x <= w; x += 5) {
+                        const env = Math.sin((x / w) * Math.PI);
+                        const waveFreq = state.freq * 0.005; 
+                        const vibration = Math.sin(x * waveFreq + VisualEngine.time);
+                        const y = centerY + vibration * visualAmp * env;
+                        ctx.lineTo(x, y);
+                    }
+
+                    ctx.globalAlpha = Math.min(1, currentAmp * 4); 
+                    ctx.stroke();
+                    
+                    if (currentAmp > 0.05) {
+                        ctx.shadowBlur = 10 + (currentAmp * 15);
+                        ctx.shadowColor = `rgba(255, 255, 255, ${currentAmp * 0.4})`;
+                        ctx.stroke();
+                        ctx.shadowBlur = 0;
+                    }
+                    ctx.globalAlpha = 1;
+                }
+
+                requestAnimationFrame(VisualEngine.loop);
+            }
+        };
+
+        // --- 3. Interaction ---
+        
+        // Pointer Tracking Logic
+        const handlePointerMove = (x, y, isTouch) => {
+            state.pointer.x = x;
+            state.pointer.y = y;
+            
+            // Mouse: Always show (hover light)
+            // Touch: Only show when touching
+            if (isTouch) {
+                state.pointer.targetOpacity = 1;
+            } else {
+                state.pointer.targetOpacity = 1; // Always glow on mouse move
+            }
+        };
+
+        const handlePointerEnd = () => {
+            // Fade out glow on touch end
+            state.pointer.targetOpacity = 0;
+        };
+
+        // Mouse Events
+        window.addEventListener('mousemove', (e) => {
+            handlePointerMove(e.clientX, e.clientY, false);
+        });
+        
+        // Touch Events
+        window.addEventListener('touchstart', (e) => {
+            handlePointerMove(e.touches[0].clientX, e.touches[0].clientY, true);
+        });
+        window.addEventListener('touchmove', (e) => {
+            // Prevent scrolling on sliders? No, default behavior is fine for range inputs usually
+            // but for full immersive feel, maybe preventDefault if needed.
+            handlePointerMove(e.touches[0].clientX, e.touches[0].clientY, true);
+        });
+        window.addEventListener('touchend', handlePointerEnd);
+
+
+        // App Logic
+        const startApp = () => {
+            dom.morphContainer.classList.add('morphed');
+            
+            AudioEngine.init();
+            VisualEngine.init();
+
+            setTimeout(() => {
+                dom.intro.classList.add('hidden-intro');
+                dom.ui.classList.add('visible');
+            }, 1400);
+        };
+
+        const togglePlay = () => {
+            state.isPlaying = !state.isPlaying;
+            AudioEngine.toggle(state.isPlaying);
+            
+            if (state.isPlaying) {
+                dom.playBtn.classList.add('playing');
+                dom.statusText.innerText = "RESONATING";
+                dom.statusText.style.color = "#FFFFFF";
+            } else {
+                dom.playBtn.classList.remove('playing');
+                dom.statusText.innerText = "STANDBY";
+                dom.statusText.style.color = "#444444";
+            }
+        };
+
+        dom.intro.addEventListener('click', startApp);
+        dom.playBtn.addEventListener('click', togglePlay);
+
+        dom.freqSlider.addEventListener('input', (e) => {
+            state.targetFreq = parseFloat(e.target.value);
+        });
+
+        dom.pulseSlider.addEventListener('input', (e) => {
+            state.targetPulse = parseFloat(e.target.value);
+        });
+
+        dom.waveBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                dom.waveBtns.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                AudioEngine.setWave(e.target.dataset.wave);
+            });
+        });
+
+    </script>
+</body>
+</html>
