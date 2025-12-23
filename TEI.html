@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TEI | The Sound Garden</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jost:wght@200;300;400;500&family=Manrope:wght@200;300;400&family=Shippori+Mincho:wght@400;500&family=Tenor+Sans&display=swap');
+
+        :root {
+            --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+            --transition-heavy: all 1000ms var(--ease-smooth);
+        }
+
+        /* Theme: Obsidian (Dark) */
+        html.theme-dark {
+            --bg: #050505;
+            --panel: #0A0A0A;
+            --text: #FFFFFF;
+            --sub: #555555;
+            --line: #222222;
+            --line-strong: #333333;
+            --accent: #FFFFFF;
+            --invert-text: #000000;
+            --helper-grid: rgba(255, 255, 255, 0.03);
+        }
+
+        /* Theme: Paper (Light) */
+        html.theme-light {
+            --bg: #F5F7FA;
+            --panel: #FFFFFF;
+            --text: #050505;
+            --sub: #9999AA;
+            --line: #E5E5E5;
+            --line-strong: #CCCCCC;
+            --accent: #000000;
+            --invert-text: #FFFFFF;
+            --helper-grid: rgba(0, 0, 0, 0.03);
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Manrope', sans-serif;
+            transition: var(--transition-heavy);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .font-kanji { font-family: 'Shippori Mincho', serif; }
+        .font-display { font-family: 'Tenor Sans', sans-serif; letter-spacing: 0.25em; text-transform: uppercase; }
+        .font-num { font-family: 'Jost', sans-serif; font-variant-numeric: tabular-nums; }
+
+        /* --- SENSES Intro --- */
+        #intro {
+            position: fixed; inset: 0; z-index: 100;
+            background-color: var(--bg);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 1.5s var(--ease-smooth), visibility 1.5s;
+            cursor: pointer;
+        }
+        #intro.hidden-intro { opacity: 0; visibility: hidden; pointer-events: none; }
+
+        .morph-container { position: relative; height: 120px; display: flex; align-items: center; justify-content: center; }
+        .char-kanji { font-size: 5rem; color: var(--text); position: absolute; opacity: 1; filter: blur(0px); transition: all 1.4s cubic-bezier(0.55, 0, 0.1, 1); }
+        .char-eng { font-family: 'Tenor Sans', sans-serif; font-size: 3rem; letter-spacing: 0.4em; color: var(--text); position: absolute; opacity: 0; filter: blur(12px); transform: scale(0.9); transition: all 1.4s cubic-bezier(0.55, 0, 0.1, 1); }
+        
+        .morphed .char-kanji { opacity: 0; filter: blur(24px); transform: scale(1.1); }
+        .morphed .char-eng { opacity: 1; filter: blur(0px); transform: scale(1); }
+
+        .click-guide {
+            margin-top: 40px; font-family: 'Tenor Sans', sans-serif; font-size: 10px;
+            letter-spacing: 0.25em; text-transform: uppercase; color: var(--sub); opacity: 0;
+            animation: fadeInGuide 1.5s ease 1.5s forwards; transition: color 0.4s;
+        }
+        .click-guide:hover { color: var(--text); }
+        @keyframes fadeInGuide { to { opacity: 1; } }
+
+        /* --- Main UI --- */
+        #ui-layer {
+            position: relative; z-index: 10;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            height: 100vh;
+            opacity: 0;
+            transition: opacity 2s var(--ease-smooth) 0.5s;
+        }
+        #ui-layer.visible { opacity: 1; }
+
+        /* Left: Garden Area */
+        .garden-viewport {
+            position: relative;
+            background-color: var(--bg);
+            display: flex; align-items: center; justify-content: center;
+            border-right: 1px solid var(--line);
+            overflow: hidden;
+        }
+
+        .garden-frame {
+            position: relative;
+            width: 600px; height: 600px;
+            border: 1px solid var(--line-strong);
+            background-color: var(--bg);
+            background-image: 
+                linear-gradient(var(--helper-grid) 1px, transparent 1px),
+                linear-gradient(90deg, var(--helper-grid) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* Axis Labels */
+        .axis-label {
+            position: absolute;
+            font-family: 'Tenor Sans', sans-serif;
+            font-size: 9px;
+            color: var(--sub);
+            letter-spacing: 0.2em;
+            pointer-events: none;
+        }
+        .label-depth-top { top: 10px; left: 50%; transform: translateX(-50%); }
+        .label-depth-bottom { bottom: 10px; left: 50%; transform: translateX(-50%); }
+        .label-width-left { left: 10px; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+        .label-width-right { right: 10px; top: 50%; transform: translateY(-50%) rotate(90deg); }
+
+        .guide-axis { position: absolute; background: var(--line-strong); pointer-events: none; }
+        .axis-h { width: 100%; height: 1px; top: 50%; left: 0; }
+        .axis-v { width: 1px; height: 100%; left: 50%; top: 0; }
+        
+        .guide-mark {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            border: 1px solid var(--line); border-radius: 50%; pointer-events: none;
+        }
+
+        .listener-mark {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 10px; height: 10px; border: 1px solid var(--text); z-index: 5;
+            background-color: var(--bg);
+        }
+
+        /* Stones */
+        .stone {
+            position: absolute;
+            padding: 4px 14px;
+            border: 1px solid var(--text);
+            background-color: var(--bg);
+            cursor: move;
+            display: flex; align-items: center; gap: 8px;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.1s;
+            z-index: 10;
+            white-space: nowrap;
+            font-size: 0.75rem;
+            transform: translate(-50%, -50%);
+        }
+        .stone:hover { border-width: 2px; }
+        .stone.dragging {
+            background-color: var(--text);
+            color: var(--invert-text);
+            z-index: 100;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border-style: dashed;
+        }
+        .stone .kanji { font-size: 0.85rem; font-weight: 500; }
+        .stone .label { font-family: 'Tenor Sans'; font-size: 0.65rem; opacity: 0.8; }
+
+        /* Right: Sidebar */
+        .sidebar {
+            padding: 2.5rem;
+            background-color: var(--panel);
+            display: flex; flex-direction: column;
+            gap: 2.5rem;
+            overflow-y: auto;
+        }
+
+        .input-group {
+            display: flex; flex-direction: column; gap: 0.5rem;
+        }
+        .input-group label {
+            font-size: 9px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.2em;
+        }
+        .item-input {
+            background: transparent; border: none; border-bottom: 1px solid var(--line);
+            color: var(--text); font-family: 'Tenor Sans'; font-size: 1.1rem;
+            outline: none; padding: 4px 0; transition: border-color 0.3s;
+        }
+        .item-input:focus { border-bottom-color: var(--text); }
+
+        .palette-section {
+            display: flex; flex-direction: column; gap: 1rem;
+        }
+        .palette-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+        .btn-add {
+            border: 1px solid var(--line);
+            padding: 12px;
+            text-align: center;
+            font-size: 0.65rem;
+            transition: all 0.3s;
+            cursor: pointer;
+            background: transparent;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .btn-add:hover { border-color: var(--text); background-color: var(--bg); }
+
+        .btn-action {
+            width: 100%;
+            padding: 1.25rem;
+            border: 1px solid var(--text);
+            background: transparent;
+            color: var(--text);
+            font-family: 'Tenor Sans';
+            font-size: 0.75rem;
+            letter-spacing: 0.3em;
+            transition: all 0.4s var(--ease-smooth);
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        .btn-action:hover { background-color: var(--text); color: var(--invert-text); }
+
+        /* Hide Canvas */
+        #export-canvas { display: none; }
+    </style>
+</head>
+<body class="theme-dark">
+
+    <!-- Intro -->
+    <div id="intro">
+        <div class="morph-container">
+            <span class="char-kanji font-kanji">庭</span>
+            <span class="char-eng font-display">TEI</span>
+        </div>
+        <div class="click-guide font-display">Initialize Space</div>
+    </div>
+
+    <div id="ui-layer">
+        
+        <!-- Left: Garden -->
+        <div class="garden-viewport">
+            <div class="garden-frame" id="garden">
+                <div class="axis-label label-depth-top">DEPTH +</div>
+                <div class="axis-label label-depth-bottom">DEPTH -</div>
+                <div class="axis-label label-width-left">WIDTH L</div>
+                <div class="axis-label label-width-right">WIDTH R</div>
+
+                <div class="guide-axis axis-h"></div>
+                <div class="guide-axis axis-v"></div>
+                
+                <div class="guide-mark w-1/4 h-1/4"></div>
+                <div class="guide-mark w-2/4 h-2/4"></div>
+                <div class="guide-mark w-3/4 h-3/4"></div>
+
+                <div class="listener-mark"></div>
+            </div>
+        </div>
+
+        <!-- Right: Sidebar -->
+        <div class="sidebar">
+            
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="font-display text-xs">TEI / SOUND GARDEN</h1>
+                    <p class="text-[9px] text-[var(--sub)] mt-1 uppercase tracking-[0.3em]">Universal Mapping Tool</p>
+                </div>
+                <button id="themeToggle" class="p-2 text-[var(--sub)] hover:text-[var(--text)] transition-colors">
+                    <i data-lucide="sun" class="w-4 h-4 hidden theme-light-icon stroke-1"></i>
+                    <i data-lucide="moon" class="w-4 h-4 hidden theme-dark-icon stroke-1"></i>
+                </button>
+            </div>
+
+            <!-- Management -->
+            <div class="input-group">
+                <label>Review Item Name</label>
+                <input type="text" id="itemName" class="item-input" placeholder="PRODUCT / SETUP" value="UNTITLED">
+            </div>
+
+            <!-- Stones Palette -->
+            <div class="palette-section">
+                <span class="font-display text-[9px] text-[var(--sub)] block uppercase">Performance Items</span>
+                <div class="palette-grid">
+                    <button class="btn-add font-kanji" data-label="VOCAL" data-kanji="歌">歌 / VOCAL</button>
+                    <button class="btn-add font-kanji" data-label="BASS" data-kanji="低">低 / BASS</button>
+                    <button class="btn-add font-kanji" data-label="DRUMS" data-kanji="打">打 / DRUMS</button>
+                    <button class="btn-add font-kanji" data-label="GUITAR" data-kanji="弦">弦 / GUITAR</button>
+                    <button class="btn-add font-kanji" data-label="PIANO" data-kanji="鍵">鍵 / PIANO</button>
+                    <button class="btn-add font-kanji" data-label="AMBIENT" data-kanji="空">空 / AMBIENT</button>
+                    <button class="btn-add font-kanji" data-label="HIGH" data-kanji="高">高 / HIGH</button>
+                    <button class="btn-add font-kanji" data-label="PERC" data-kanji="音">音 / EFFECT</button>
+                </div>
+            </div>
+
+            <!-- Peripheral/Texture Items -->
+            <div class="palette-section">
+                <span class="font-display text-[9px] text-[var(--sub)] block uppercase">Texture & Comparison</span>
+                <div class="palette-grid">
+                    <button class="btn-add font-kanji" data-label="WARM" data-kanji="暖">暖 / WARM</button>
+                    <button class="btn-add font-kanji" data-label="SHARP" data-kanji="鋭">鋭 / SHARP</button>
+                    <button class="btn-add font-kanji" data-label="GLOSS" data-kanji="艶">艶 / GLOSS</button>
+                    <button class="btn-add font-kanji" data-label="DENSE" data-kanji="密">密 / DENSE</button>
+                    <button class="btn-add font-kanji" data-label="WIDE" data-kanji="広">広 / WIDE</button>
+                    <button class="btn-add font-kanji" data-label="REF" data-kanji="基">基 / REFERENCE</button>
+                    <button class="btn-add font-kanji" data-label="COMP" data-kanji="比">比 / COMP</button>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="mt-auto space-y-4">
+                <button id="btnExport" class="btn-action">
+                    <span class="flex items-center justify-center gap-2">
+                        <i data-lucide="camera" class="w-3 h-3"></i>
+                        Capture Map
+                    </span>
+                </button>
+                <button id="btnClear" class="btn-action opacity-30 border-dashed hover:opacity-100">Reset Garden</button>
+            </div>
+
+        </div>
+    </div>
+
+    <canvas id="export-canvas"></canvas>
+
+    <script>
+        /**
+         * TEI - The Sound Garden v2.2
+         * Logic: Universal Palette & Item Management
+         */
+
+        const SNAP_UNIT = 20;
+        const state = {
+            isDragging: false,
+            activeStone: null,
+            gardenRect: null,
+            theme: localStorage.getItem('tei_theme') || 'dark'
+        };
+
+        const dom = {
+            body: document.body,
+            intro: document.getElementById('intro'),
+            ui: document.getElementById('ui-layer'),
+            garden: document.getElementById('garden'),
+            themeToggle: document.getElementById('themeToggle'),
+            btnExport: document.getElementById('btnExport'),
+            btnClear: document.getElementById('btnClear'),
+            itemName: document.getElementById('itemName'),
+            exportCanvas: document.getElementById('export-canvas')
+        };
+
+        // --- Init ---
+        window.addEventListener('load', () => {
+            setTheme(state.theme);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            dom.intro.addEventListener('click', () => {
+                dom.intro.classList.add('morphed');
+                setTimeout(() => {
+                    dom.intro.classList.add('hidden-intro');
+                    dom.ui.classList.add('visible');
+                    updateGardenRect();
+                }, 1400);
+            });
+
+            initInteractions();
+        });
+
+        function updateGardenRect() {
+            state.gardenRect = dom.garden.getBoundingClientRect();
+        }
+
+        window.addEventListener('resize', updateGardenRect);
+
+        function initInteractions() {
+            dom.themeToggle.addEventListener('click', () => {
+                setTheme(state.theme === 'dark' ? 'light' : 'dark');
+            });
+
+            document.querySelectorAll('.btn-add').forEach(btn => {
+                btn.addEventListener('click', () => createStone(btn.dataset.label, btn.dataset.kanji));
+            });
+
+            dom.btnClear.addEventListener('click', () => {
+                dom.garden.querySelectorAll('.stone').forEach(s => s.remove());
+            });
+
+            dom.btnExport.addEventListener('click', exportMap);
+
+            window.addEventListener('mousemove', handleDragMove);
+            window.addEventListener('touchmove', handleDragMove, { passive: false });
+            window.addEventListener('mouseup', handleDragEnd);
+            window.addEventListener('touchend', handleDragEnd);
+        }
+
+        function createStone(label, kanji) {
+            const stone = document.createElement('div');
+            stone.className = 'stone font-kanji';
+            stone.innerHTML = `<span class="kanji">${kanji}</span><span class="label tracking-widest">${label}</span>`;
+            
+            stone.style.left = `300px`;
+            stone.style.top = `300px`;
+            
+            dom.garden.appendChild(stone);
+
+            const start = (e) => {
+                e.preventDefault();
+                state.isDragging = true;
+                state.activeStone = stone;
+                stone.classList.add('dragging');
+                updateGardenRect();
+            };
+
+            stone.addEventListener('mousedown', start);
+            stone.addEventListener('touchstart', start);
+            stone.addEventListener('dblclick', () => stone.remove());
+        }
+
+        function handleDragMove(e) {
+            if (!state.isDragging || !state.activeStone) return;
+            if (e.type === 'touchmove') e.preventDefault();
+
+            const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+            let rawX = clientX - state.gardenRect.left;
+            let rawY = clientY - state.gardenRect.top;
+
+            let snappedX = Math.round(rawX / SNAP_UNIT) * SNAP_UNIT;
+            let snappedY = Math.round(rawY / SNAP_UNIT) * SNAP_UNIT;
+
+            snappedX = Math.max(0, Math.min(snappedX, 600));
+            snappedY = Math.max(0, Math.min(snappedY, 600));
+
+            state.activeStone.style.left = `${snappedX}px`;
+            state.activeStone.style.top = `${snappedY}px`;
+        }
+
+        function handleDragEnd() {
+            if (state.activeStone) state.activeStone.classList.remove('dragging');
+            state.isDragging = false;
+            state.activeStone = null;
+        }
+
+        function setTheme(theme) {
+            state.theme = theme;
+            localStorage.setItem('tei_theme', theme);
+            const isDark = theme === 'dark';
+            document.documentElement.classList.toggle('theme-dark', isDark);
+            document.documentElement.classList.toggle('theme-light', !isDark);
+            
+            if (dom.themeToggle) {
+                const l = dom.themeToggle.querySelector('.theme-light-icon');
+                const d = dom.themeToggle.querySelector('.theme-dark-icon');
+                if(l) l.classList.toggle('hidden', !isDark);
+                if(d) d.classList.toggle('hidden', isDark);
+            }
+        }
+
+        function exportMap() {
+            const size = 1200; 
+            const scale = size / 600;
+            const ctx = dom.exportCanvas.getContext('2d');
+            dom.exportCanvas.width = size;
+            dom.exportCanvas.height = size;
+
+            const style = getComputedStyle(document.documentElement);
+            const bgColor = style.getPropertyValue('--bg').trim();
+            const textColor = style.getPropertyValue('--text').trim();
+            const lineStrong = style.getPropertyValue('--line-strong').trim();
+            const subColor = style.getPropertyValue('--sub').trim();
+
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, size, size);
+
+            // Axis Labels
+            ctx.fillStyle = subColor;
+            ctx.font = '16px "Tenor Sans"';
+            ctx.textAlign = 'center';
+            ctx.fillText("DEPTH +", size/2, 40);
+            ctx.fillText("DEPTH -", size/2, size - 30);
+            
+            ctx.save();
+            ctx.translate(40, size/2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText("WIDTH LEFT", 0, 0);
+            ctx.restore();
+            
+            ctx.save();
+            ctx.translate(size - 30, size/2);
+            ctx.rotate(Math.PI / 2);
+            ctx.fillText("WIDTH RIGHT", 0, 0);
+            ctx.restore();
+
+            // Axis & Guides
+            ctx.strokeStyle = lineStrong;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(size/2, 60); ctx.lineTo(size/2, size - 60);
+            ctx.moveTo(60, size/2); ctx.lineTo(size - 60, size/2);
+            ctx.stroke();
+
+            ctx.setLineDash([8, 8]);
+            [0.25, 0.5, 0.75].forEach(r => {
+                ctx.beginPath();
+                ctx.arc(size/2, size/2, (size/2 - 60) * r, 0, Math.PI*2);
+                ctx.stroke();
+            });
+            ctx.setLineDash([]);
+
+            // Listener Square
+            ctx.strokeStyle = textColor;
+            ctx.strokeRect(size/2 - 12, size/2 - 12, 24, 24);
+
+            // Stones
+            const stones = dom.garden.querySelectorAll('.stone');
+            stones.forEach(s => {
+                const x = parseFloat(s.style.left) * scale;
+                const y = parseFloat(s.style.top) * scale;
+                const label = s.querySelector('.label').textContent;
+                const kanji = s.querySelector('.kanji').textContent;
+
+                ctx.font = 'bold 18px "Manrope"';
+                const labelW = ctx.measureText(label).width;
+                const boxW = Math.max(110, labelW + 90);
+                const boxH = 56;
+
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(x - boxW/2, y - boxH/2, boxW, boxH);
+                ctx.strokeStyle = textColor;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x - boxW/2, y - boxH/2, boxW, boxH);
+
+                ctx.fillStyle = textColor;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = '28px "Shippori Mincho"';
+                ctx.fillText(kanji, x - (boxW/2) + 30, y);
+                ctx.font = '18px "Tenor Sans"';
+                ctx.fillText(label, x + 18, y);
+            });
+
+            // Review Item Name (Title)
+            ctx.font = '300 32px "Tenor Sans"';
+            ctx.fillStyle = textColor;
+            ctx.textAlign = 'left';
+            ctx.fillText(dom.itemName.value.toUpperCase(), 60, 80);
+
+            // Branding
+            ctx.font = '14px "Tenor Sans"';
+            ctx.fillStyle = subColor;
+            ctx.textAlign = 'right';
+            ctx.fillText("TEI // SOUND GARDEN MAP", size - 60, size - 60);
+
+            const link = document.createElement('a');
+            link.download = `TEI_Map_${dom.itemName.value.replace(/\s+/g, '_')}_${Date.now()}.png`;
+            link.href = dom.exportCanvas.toDataURL('image/png');
+            link.click();
+        }
+
+    </script>
+</body>
+</html>
