@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SENSES : HAKU | The Aesthetic of Space</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jost:wght@200;300;400&family=Manrope:wght@200;300;400&family=Shippori+Mincho:wght@400;500&family=Tenor+Sans&display=swap');
+
+        :root {
+            --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+            --transition-heavy: all 1200ms var(--ease-smooth);
+        }
+
+        body {
+            background-color: #F6F6F6;
+            color: #050505;
+            font-family: 'Manrope', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .font-kanji { font-family: 'Shippori Mincho', serif; }
+        .font-display { font-family: 'Tenor Sans', sans-serif; letter-spacing: 0.4em; text-transform: uppercase; }
+
+        /* --- SENSES Intro --- */
+        #intro {
+            position: fixed; inset: 0; z-index: 100; background-color: #FFFFFF;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 1.5s var(--ease-smooth), visibility 1.5s; cursor: pointer;
+        }
+        #intro.hidden-intro { opacity: 0; visibility: hidden; pointer-events: none; }
+        .morph-container { position: relative; height: 120px; display: flex; align-items: center; justify-content: center; }
+        .char-kanji { font-size: 5rem; color: #050505; position: absolute; opacity: 1; filter: blur(0px); transition: all 1.5s var(--ease-smooth); }
+        .char-eng { font-family: 'Tenor Sans', sans-serif; font-size: 3rem; letter-spacing: 0.5em; color: #050505; position: absolute; opacity: 0; filter: blur(16px); transform: scale(0.9); transition: all 1.5s var(--ease-smooth); }
+        .morphed .char-kanji { opacity: 0; filter: blur(24px); transform: scale(1.1); }
+        .morphed .char-eng { opacity: 1; filter: blur(0px); transform: scale(1); }
+
+        /* --- Main UI --- */
+        #ui-layer { display: none; height: 100vh; width: 100vw; }
+        #ui-layer.ready { display: grid; grid-template-columns: 1fr 400px; }
+        @media (max-width: 1024px) { #ui-layer.ready { grid-template-columns: 1fr; grid-template-rows: 1fr auto; } }
+
+        /* Viewer Area */
+        .viewer {
+            position: relative; background-color: #E8E8E8;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden; padding: 60px;
+        }
+        
+        .preview-frame {
+            position: relative; background-color: #FFFFFF;
+            box-shadow: 0 50px 100px -30px rgba(0,0,0,0.08);
+            max-width: 100%; max-height: 100%;
+            aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center;
+            transition: var(--transition-heavy);
+        }
+        .preview-frame img { 
+            max-width: 100%; max-height: 100%; 
+            object-fit: contain; 
+            transition: all 0.6s var(--ease-smooth);
+        }
+
+        /* Sidebar Control */
+        .sidebar {
+            background-color: #FFFFFF; padding: 4rem 3rem;
+            display: flex; flex-direction: column; gap: 3rem;
+            border-left: 1px solid #EEEEEE;
+            z-index: 10;
+        }
+
+        .drop-zone {
+            width: 100%; height: 120px; border: 1px solid #EEE;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.3s; gap: 0.5rem;
+        }
+        .drop-zone:hover { border-color: #050505; background-color: #FAFAFA; }
+        .drop-zone p { font-size: 8px; tracking-[0.2em] color: #AAA; text-transform: uppercase; }
+
+        /* Ratio Toggles */
+        .ratio-selector {
+            display: flex; flex-direction: column; gap: 1rem;
+        }
+        .ratio-options {
+            display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #EEE;
+        }
+        .ratio-btn {
+            padding: 1rem; font-size: 10px; font-family: 'Tenor Sans';
+            letter-spacing: 0.2em; text-align: center; cursor: pointer;
+            transition: all 0.3s; opacity: 0.3;
+        }
+        .ratio-btn.active { opacity: 1; background: #050505; color: #FFF; }
+
+        .btn-action {
+            width: 100%; padding: 1.25rem; border: 1px solid #050505;
+            background: transparent; color: #050505; font-family: 'Tenor Sans';
+            font-size: 0.75rem; letter-spacing: 0.3em; transition: all 0.4s var(--ease-smooth);
+            cursor: pointer; text-transform: uppercase;
+        }
+        .btn-action:hover { background-color: #050505; color: #FFFFFF; }
+        .btn-action:disabled { opacity: 0.1; cursor: not-allowed; border-color: #EEE; }
+
+        .info-panel { font-size: 9px; color: #BBB; line-height: 2; font-family: 'Jost'; }
+        .info-panel b { color: #050505; font-weight: 400; }
+
+        #export-canvas { display: none; }
+
+        .label-tech { font-size: 7px; tracking-[0.4em] color: #CCC; text-transform: uppercase; margin-bottom: 0.5rem; display: block; }
+    </style>
+</head>
+<body>
+
+    <!-- Intro -->
+    <div id="intro">
+        <div class="morph-container">
+            <span class="char-kanji font-kanji">白</span>
+            <span class="char-eng font-display">HAKU</span>
+        </div>
+        <div class="mt-8 font-display text-[9px] opacity-0 animate-pulse tracking-[0.5em]">RATIO_STABILIZED_AIR</div>
+    </div>
+
+    <!-- UI -->
+    <div id="ui-layer">
+        
+        <!-- Section: Frame Viewer -->
+        <section class="viewer">
+            <div id="preview-frame" class="preview-frame opacity-0">
+                <img id="image-preview" src="" alt="">
+            </div>
+            <div id="empty-state" class="absolute font-display text-[10px] text-[#CCC] tracking-[1.5em]">ESTABLISHING_SILENCE</div>
+        </section>
+
+        <!-- Section: Parameters -->
+        <section class="sidebar">
+            <div class="header">
+                <h1 class="font-display text-xs">HAKU / RATIO CANVAS</h1>
+                <p class="text-[8px] text-[#BBB] mt-1 uppercase tracking-[0.4em]">The Aesthetics of Blank Space</p>
+            </div>
+
+            <!-- Image Drop -->
+            <div class="space-y-2">
+                <span class="label-tech">Source_Input</span>
+                <div id="drop-zone" class="drop-zone">
+                    <i data-lucide="image" class="w-4 h-4 stroke-[1] text-[#CCC]"></i>
+                    <p>Select Artifact</p>
+                    <input type="file" id="file-input" class="hidden" accept="image/*">
+                </div>
+            </div>
+
+            <!-- Ratio Config -->
+            <div class="ratio-selector">
+                <span class="label-tech">Space_Ratio_Matrix</span>
+                <div class="ratio-options">
+                    <div class="ratio-btn active" data-ratio="1.618">1:1.618<br>GOLDEN</div>
+                    <div class="ratio-btn" data-ratio="1.732">1:1.732<br>PLATINUM</div>
+                </div>
+            </div>
+
+            <!-- Tech Details -->
+            <div class="info-panel">
+                <div class="flex justify-between"><span>Original_Dim</span><b id="info-res">-</b></div>
+                <div class="flex justify-between"><span>Target_Square</span><b id="info-out">-</b></div>
+                <div class="flex justify-between"><span>Degradation</span><b>ZERO_LOSS</b></div>
+            </div>
+
+            <!-- Actions -->
+            <div class="mt-auto space-y-4">
+                <button id="btn-download" class="btn-action" disabled>
+                    Finalize Artifact
+                </button>
+                <p class="text-[7px] leading-relaxed text-[#CCC] uppercase tracking-[0.2em] text-center">
+                    Mathematical centering of raw pixels.<br>
+                    No compression. No resampling.
+                </p>
+            </div>
+
+            <div class="font-display text-[8px] text-[#EEE] tracking-[0.6em] text-center">SENSES_ARCHIVE_HAKU_V2</div>
+        </section>
+    </div>
+
+    <canvas id="export-canvas"></canvas>
+
+    <script>
+        /**
+         * HAKU - The Aesthetics of Blank Space
+         * Lossless Framing Engine
+         */
+
+        let sourceImage = null;
+        let originalName = "haku_artifact";
+        let activeRatio = 1.618;
+
+        const dom = {
+            intro: document.getElementById('intro'),
+            ui: document.getElementById('ui-layer'),
+            dropZone: document.getElementById('drop-zone'),
+            fileInput: document.getElementById('file-input'),
+            previewFrame: document.getElementById('preview-frame'),
+            previewImg: document.getElementById('image-preview'),
+            emptyState: document.getElementById('empty-state'),
+            btnDownload: document.getElementById('btn-download'),
+            canvas: document.getElementById('export-canvas'),
+            ratioBtns: document.querySelectorAll('.ratio-btn'),
+            // Info
+            infoRes: document.getElementById('info-res'),
+            infoOut: document.getElementById('info-out')
+        };
+
+        // --- Init ---
+        window.addEventListener('load', () => {
+            lucide.createIcons();
+            dom.intro.addEventListener('click', () => {
+                dom.intro.classList.add('morphed');
+                setTimeout(() => {
+                    dom.intro.classList.add('hidden-intro');
+                    dom.ui.classList.add('ready');
+                }, 1400);
+            });
+            setupListeners();
+        });
+
+        function setupListeners() {
+            dom.dropZone.addEventListener('click', () => dom.fileInput.click());
+            dom.fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+            
+            // Drag Drop
+            dom.dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dom.dropZone.classList.add('border-[#050505]'); });
+            dom.dropZone.addEventListener('dragleave', () => dom.dropZone.classList.remove('border-[#050505]'));
+            dom.dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dom.dropZone.classList.remove('border-[#050505]');
+                handleFile(e.dataTransfer.files[0]);
+            });
+
+            // Ratio Toggles
+            dom.ratioBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    dom.ratioBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    activeRatio = parseFloat(btn.dataset.ratio);
+                    updateStats();
+                });
+            });
+
+            dom.btnDownload.addEventListener('click', generateAndDownload);
+        }
+
+        function handleFile(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+            originalName = file.name.split('.')[0];
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    sourceImage = img;
+                    displayArtifact(e.target.result);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function displayArtifact(src) {
+            dom.previewImg.src = src;
+            dom.previewFrame.classList.remove('opacity-0');
+            dom.emptyState.classList.add('hidden');
+            dom.btnDownload.disabled = false;
+            updateStats();
+        }
+
+        function updateStats() {
+            if (!sourceImage) return;
+            const w = sourceImage.naturalWidth;
+            const h = sourceImage.naturalHeight;
+            const maxSide = Math.max(w, h);
+            const targetSize = Math.round(maxSide * activeRatio);
+
+            dom.infoRes.innerText = `${w} x ${h} PX`;
+            dom.infoOut.innerText = `${targetSize} x ${targetSize} PX`;
+
+            // Adjust Preview Frame Aspect Ratio Logic (CSS Scale)
+            // Longest side becomes 1/activeRatio of the frame's 100%
+            const scale = (1 / activeRatio) * 100;
+            dom.previewImg.style.width = sourceImage.naturalWidth > sourceImage.naturalHeight ? `${scale}%` : 'auto';
+            dom.previewImg.style.height = sourceImage.naturalHeight >= sourceImage.naturalWidth ? `${scale}%` : 'auto';
+        }
+
+        function generateAndDownload() {
+            if (!sourceImage) return;
+
+            const w = sourceImage.naturalWidth;
+            const h = sourceImage.naturalHeight;
+            const size = Math.round(Math.max(w, h) * activeRatio);
+            
+            dom.canvas.width = size;
+            dom.canvas.height = size;
+            const ctx = dom.canvas.getContext('2d');
+            
+            // Background: Pure Silence
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, 0, size, size);
+            
+            // Centering: Precision Placement
+            const dx = (size - w) / 2;
+            const dy = (size - h) / 2;
+            
+            // Lossless Pixel Drawing
+            ctx.drawImage(sourceImage, dx, dy, w, h);
+            
+            const link = document.createElement('a');
+            link.download = `${originalName}_HAKU_RATIO.png`;
+            link.href = dom.canvas.toDataURL('image/png', 1.0);
+            link.click();
+        }
+    </script>
+</body>
+</html>
