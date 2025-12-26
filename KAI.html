@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SENSES : KAI | The High-Fi Sanctuary</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* SENSES Series Typography */
+        @import url('https://fonts.googleapis.com/css2?family=Jost:wght@100;200;300;400;500&family=Manrope:wght@200;300;400&family=Shippori+Mincho:wght@400;500&family=Tenor+Sans&display=swap');
+
+        :root {
+            /* Heavy, slow easing for weight */
+            --ease-heavy: cubic-bezier(0.2, 0, 0, 1);
+            --tube-orange: 255, 100, 20;
+            --transition-main: all 1800ms var(--ease-heavy);
+            --transition-ui: all 600ms var(--ease-heavy);
+        }
+
+        /* Theme: Sumi (Dark) */
+        html.theme-dark {
+            --bg: #050505;
+            --panel: #080808;
+            --text: #F0F0F0;
+            --sub: #333333;
+            --line: #151515;
+            --line-strong: #252525;
+            --accent: #FFFFFF;
+            --tube-off: #111111;
+            --helper-grid: rgba(255, 255, 255, 0.015);
+        }
+
+        /* Theme: Kami (Light) */
+        html.theme-light {
+            --bg: #F0F2F5;
+            --panel: #FFFFFF;
+            --text: #111111;
+            --sub: #A0A0A0;
+            --line: #E5E5E5;
+            --line-strong: #D5D5D5;
+            --accent: #000000;
+            --tube-off: #E0E0E0;
+            --helper-grid: rgba(0, 0, 0, 0.015);
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Manrope', sans-serif;
+            transition: var(--transition-main);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .font-kanji { font-family: 'Shippori Mincho', serif; }
+        .font-display { font-family: 'Tenor Sans', sans-serif; letter-spacing: 0.35em; text-transform: uppercase; }
+        .font-num { font-family: 'Jost', sans-serif; font-variant-numeric: tabular-nums; letter-spacing: 0.1em; }
+
+        /* --- SENSES Precision Slider --- */
+        input[type=range] {
+            -webkit-appearance: none; width: 100%; background: transparent; cursor: crosshair; height: 32px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 1px; background: var(--line-strong);
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 1px; background: var(--text); border: none; margin-top: -8px; transition: var(--transition-ui);
+        }
+        input[type=range]:active::-webkit-slider-thumb { transform: scaleY(2); background: rgb(var(--tube-orange)); width: 2px; }
+
+        /* --- SENSES Intro Ritual --- */
+        #intro {
+            position: fixed; inset: 0; z-index: 100; background-color: var(--bg);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 2s var(--ease-heavy), visibility 2s; cursor: pointer;
+        }
+        #intro.hidden-intro { opacity: 0; visibility: hidden; pointer-events: none; }
+        .morph-container { position: relative; height: 120px; display: flex; align-items: center; justify-content: center; }
+        .char-kanji { font-size: 5rem; color: var(--text); position: absolute; opacity: 1; filter: blur(0px); transition: all 1.8s var(--ease-heavy); }
+        .char-eng { font-family: 'Tenor Sans', sans-serif; font-size: 3rem; letter-spacing: 0.5em; color: var(--text); position: absolute; opacity: 0; filter: blur(16px); transform: scale(0.85); transition: all 1.8s var(--ease-heavy); }
+        .morphed .char-kanji { opacity: 0; filter: blur(32px); transform: scale(1.15); }
+        .morphed .char-eng { opacity: 1; filter: blur(0px); transform: scale(1); }
+
+        /* --- Layout --- */
+        #ui-layer { display: none; height: 100vh; width: 100vw; }
+        #ui-layer.ready { display: grid; grid-template-columns: 1.2fr 1fr; }
+        @media (max-width: 1024px) { #ui-layer.ready { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; } }
+
+        /* --- Analog Platter (Left) --- */
+        .source-area {
+            position: relative; background-color: var(--bg);
+            display: flex; align-items: center; justify-content: center;
+            border-right: 1px solid var(--line); overflow: hidden;
+            background-image: linear-gradient(var(--helper-grid) 1px, transparent 1px), linear-gradient(90deg, var(--helper-grid) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        .record-container { position: relative; width: 65vw; height: 65vw; max-width: 480px; max-height: 480px; }
+        
+        .vinyl {
+            width: 100%; height: 100%; border-radius: 50%;
+            background: repeating-radial-gradient(rgba(15,15,15,0.95), rgba(15,15,15,0.95) 2px, rgba(5,5,5,1) 3px, rgba(5,5,5,1) 4px);
+            box-shadow: 0 60px 120px -30px rgba(0,0,0,0.8);
+            display: flex; align-items: center; justify-content: center;
+            position: relative; overflow: hidden; transition: transform 2.5s var(--ease-heavy);
+        }
+        .vinyl::after {
+            content: ''; position: absolute; inset: 0; border-radius: 50%;
+            background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%, rgba(255,255,255,0.01) 100%);
+        }
+
+        /* Ultra-slow spin for calm effect */
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .spinning { animation: spin 4s linear infinite; }
+
+        .album-art {
+            width: 33%; aspect-ratio: 1/1; border-radius: 50%; border: 1px solid #000;
+            background-color: #000; overflow: hidden; z-index: 10;
+        }
+        .album-art img { width: 100%; height: 100%; object-fit: cover; opacity: 0.2; filter: grayscale(1); transition: opacity 2s var(--ease-heavy); }
+
+        .tone-arm {
+            position: absolute; top: -15%; right: -15%; width: 25%; height: 120%;
+            pointer-events: none; z-index: 20; transform-origin: 50% 5%;
+            transform: rotate(-55deg); transition: transform 3.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .arm-active { transform: rotate(12deg); }
+        .arm-rod { position: absolute; top: 5%; left: 50%; width: 1px; height: 88%; background: var(--line-strong); }
+        .arm-head { position: absolute; bottom: 0; left: 50%; width: 8px; height: 40px; background: var(--bg); border: 1px solid var(--line-strong); transform: translateX(-50%); }
+
+        /* --- Vacuum Tube Sanctum (Right Sidebar Top) --- */
+        .tube-stage {
+            display: flex; justify-content: flex-start; align-items: flex-end; gap: 4rem; height: 160px;
+            margin-bottom: 4rem; position: relative;
+        }
+        .tube-chamber {
+            width: 2px; height: 120px; position: relative;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+        }
+        .tube-glass {
+            position: absolute; bottom: 0; width: 28px; height: 90px;
+            border: 1px solid var(--line); border-radius: 14px 14px 2px 2px;
+            transition: var(--transition-main);
+        }
+        .filament {
+            width: 1px; height: 50px; background: var(--tube-off);
+            transition: var(--transition-main); position: relative; z-index: 2;
+            margin-bottom: 12px;
+        }
+        .playing .filament {
+            background: rgb(var(--tube-orange));
+            box-shadow: 0 0 20px 2px rgba(var(--tube-orange), 0.5);
+            animation: breathe 6s infinite alternate var(--ease-heavy);
+        }
+        .playing .tube-glass { border-color: rgba(var(--tube-orange), 0.25); }
+
+        @keyframes breathe {
+            0% { opacity: 0.5; filter: blur(0.5px); }
+            100% { opacity: 1; filter: blur(2px); }
+        }
+
+        /* --- Digital Control (Right) --- */
+        .control-area {
+            background-color: var(--panel); padding: 5rem 4rem;
+            display: flex; flex-direction: column; gap: 4.5rem; overflow-y: auto;
+            border-left: 1px solid var(--line);
+        }
+
+        .track-display h1 { 
+            font-size: 3rem; font-weight: 200; line-height: 1; 
+            margin-bottom: 1.25rem; color: var(--text); letter-spacing: -0.04em;
+        }
+        .track-display p { font-size: 8px; tracking-[0.5em] color: var(--sub); text-transform: uppercase; }
+
+        .mood-nav { display: flex; justify-content: flex-start; gap: 3rem; border-bottom: 1px solid var(--line); padding-bottom: 1.5rem; }
+        .mood-item { font-size: 9px; tracking-[0.4em] opacity: 0.2; cursor: pointer; transition: 0.8s; }
+        .mood-item.active { opacity: 1; color: var(--text); font-weight: 500; }
+
+        .play-btn {
+            width: 90px; height: 90px; border-radius: 50%; border: 1px solid var(--line-strong);
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            transition: var(--transition-ui); background: transparent; color: var(--text);
+        }
+        .play-btn:hover { border-color: var(--text); }
+        .play-btn:active { transform: scale(0.96); }
+
+        .label-tech { font-size: 7px; tracking-[0.6em] color: var(--sub); text-transform: uppercase; margin-bottom: 0.75rem; display: block;}
+
+        #youtube-hidden { position: absolute; top: -9999px; }
+        
+        .counter-box { position: absolute; top: 12px; right: 12px; opacity: 0.2; pointer-events: none; }
+    </style>
+</head>
+<body class="theme-dark">
+
+    <!-- Ritual Intro -->
+    <div id="intro">
+        <div class="morph-container">
+            <span class="char-kanji font-kanji">懐</span>
+            <span class="char-eng font-display">KAI</span>
+        </div>
+        <div class="mt-8 font-display text-[8px] opacity-0 animate-pulse tracking-[0.6em]">ESTABLISHING_SILENCE</div>
+    </div>
+
+    <!-- UI Structure -->
+    <div id="ui-layer">
+        
+        <!-- Part 01: Analog Foundation -->
+        <section class="source-area">
+            <div class="absolute top-12 left-12 font-display text-[9px] text-[var(--sub)] tracking-[0.7em]">SOURCE_SIGNAL // ANALOG_FOUNDATION</div>
+            
+            <div class="record-container">
+                <div class="vinyl" id="vinyl">
+                    <div class="album-art">
+                        <img id="album-art-img" src="" alt="">
+                    </div>
+                </div>
+                <!-- Needle Damping -->
+                <div class="tone-arm" id="tone-arm">
+                    <div class="arm-rod"></div>
+                    <div class="arm-head"></div>
+                </div>
+            </div>
+
+            <div class="absolute bottom-12 left-12 font-display text-[8px] text-[var(--sub)] tracking-[0.5em]">MONITORING_UNIT // TUBE_001-003</div>
+        </section>
+
+        <!-- Part 02: Digital Control -->
+        <section class="control-area">
+            
+            <!-- Metadata Area -->
+            <div class="track-display mt-4">
+                <p id="track-author">Architecture of Space</p>
+                <h1 id="track-title" class="font-kanji italic">SENSES</h1>
+            </div>
+
+            <!-- Sanctuary Controls -->
+            <div class="space-y-16">
+                <!-- Select Mood -->
+                <nav class="mood-nav" id="mood-selector">
+                    <span class="mood-item active" onclick="changeMood('chill')">CHILL</span>
+                    <span class="mood-item" onclick="changeMood('night')">NIGHT</span>
+                    <span class="mood-item" onclick="changeMood('coffee')">COFFEE</span>
+                </nav>
+
+                <!-- Audio Geometry -->
+                <div class="flex items-center justify-between">
+                    <button onclick="prevTrack()" class="text-[var(--sub)] hover:text-white transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                    <button id="play-btn" class="play-btn">
+                        <i id="play-icon" data-lucide="play" class="w-8 h-8 fill-current ml-2"></i>
+                    </button>
+                    <button onclick="nextTrack()" class="text-[var(--sub)] hover:text-white transition-colors"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                </div>
+
+                <!-- Precision Sliders -->
+                <div class="space-y-12">
+                    <div>
+                        <div class="flex justify-between items-end mb-2">
+                            <span class="label-tech text-xs">Gain_Structure</span>
+                            <span id="vol-val" class="font-num text-[10px] opacity-40">80</span>
+                        </div>
+                        <input type="range" id="volume-slider" min="0" max="100" value="80">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-end mb-2">
+                            <span class="label-tech text-xs">Atmospheric_Noise</span>
+                            <span id="noise-val" class="font-num text-[10px] opacity-40">08</span>
+                        </div>
+                        <input type="range" id="noise-slider" min="0" max="100" value="08">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vacuum Tubes Section -->
+            <div class="tube-stage mt-auto" id="tube-stage">
+                <div class="tube-chamber">
+                    <div class="filament"></div>
+                    <div class="tube-glass"></div>
+                </div>
+                <div class="tube-chamber">
+                    <div class="filament" style="transition-delay: 0.2s"></div>
+                    <div class="tube-glass" style="transition-delay: 0.2s"></div>
+                </div>
+                <div class="tube-chamber">
+                    <div class="filament" style="transition-delay: 0.4s"></div>
+                    <div class="tube-glass" style="transition-delay: 0.4s"></div>
+                </div>
+            </div>
+
+            <!-- Footer Archive -->
+            <div class="flex justify-between items-end">
+                <div class="font-display text-[8px] text-[var(--sub)] tracking-[0.5em]">KAI_SYSTEM_V.03</div>
+                <button id="themeToggle" class="p-3 border border-[var(--line)] hover:border-[var(--text)] transition-all">
+                    <i data-lucide="sun" class="w-4 h-4 theme-light-icon"></i>
+                    <i data-lucide="moon" class="w-4 h-4 hidden theme-dark-icon"></i>
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <!-- Hidden Core Engine -->
+    <div id="youtube-hidden"><div id="player"></div></div>
+
+    <script>
+        /**
+         * KAI - The High-Fi Sanctuary
+         * Refined for Silence and Depth
+         */
+        const MOODS = {
+            chill: ['neV3EPgvZ3g', 'kLlzfiVHVnc', 'eB0arUZ-63I', 'x57GYTMVxqI'],
+            night: ['Hu4YEQT7n-k', '_4kL9JUwwZE', '5yx6BWlEVcY', 'Dx5q0C4i2w8'],
+            coffee: ['DWcJFNfaw9c', 'fEvM-OUbaKs', 'hN_q-_nGv4U', 'A_Gh80e1wzU']
+        };
+
+        let state = {
+            currentMood: 'chill',
+            currentTrackIndex: 0,
+            isPlaying: false,
+            isReady: false,
+            theme: localStorage.getItem('kai_theme') || 'dark'
+        };
+
+        let player;
+        let audioCtx, masterGain, noiseSource;
+
+        // --- Bootstrap ---
+        window.addEventListener('load', () => {
+            setTheme(state.theme);
+            lucide.createIcons();
+            
+            const intro = document.getElementById('intro');
+            intro.addEventListener('click', () => {
+                intro.classList.add('morphed');
+                setTimeout(() => {
+                    intro.classList.add('hidden-intro');
+                    document.getElementById('ui-layer').classList.add('ready');
+                }, 2000); // Slower, ritualistic reveal
+            });
+
+            const tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            document.head.appendChild(tag);
+        });
+
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height: '0', width: '0',
+                videoId: MOODS[state.currentMood][state.currentTrackIndex],
+                playerVars: { 'enablejsapi': 1, 'autoplay': 0, 'controls': 0, 'rel': 0, 'playsinline': 1 },
+                events: {
+                    'onReady': () => { state.isReady = true; updateTrackInfo(); },
+                    'onStateChange': onPlayerStateChange,
+                    'onError': () => nextTrack()
+                }
+            });
+        }
+
+        function onPlayerStateChange(event) {
+            if (event.data == YT.PlayerState.PLAYING) setUIState(true);
+            else if (event.data == YT.PlayerState.PAUSED || event.data == YT.PlayerState.ENDED) {
+                setUIState(false);
+                if (event.data == YT.PlayerState.ENDED) nextTrack();
+            }
+            updateTrackInfo();
+        }
+
+        function setUIState(playing) {
+            state.isPlaying = playing;
+            const vinyl = document.getElementById('vinyl');
+            const arm = document.getElementById('tone-arm');
+            const stage = document.getElementById('tube-stage');
+            const btn = document.getElementById('play-btn');
+
+            if (playing) {
+                vinyl.classList.add('spinning');
+                arm.classList.add('arm-active');
+                stage.classList.add('playing');
+                btn.innerHTML = '<i data-lucide="pause" class="w-8 h-8 fill-current"></i>';
+                startNoise();
+            } else {
+                vinyl.classList.remove('spinning');
+                arm.classList.remove('arm-active');
+                stage.classList.remove('playing');
+                btn.innerHTML = '<i data-lucide="play" class="w-8 h-8 fill-current ml-2"></i>';
+                stopNoise();
+            }
+            lucide.createIcons();
+        }
+
+        function updateTrackInfo() {
+            const data = player?.getVideoData?.();
+            if (!data) return;
+            const fullTitle = data.title || "Selected Artifact";
+            const parts = fullTitle.split(' - ');
+            document.getElementById('track-title').textContent = (parts[0] || "SENSES").trim();
+            document.getElementById('track-author').textContent = (parts[1] || "Ambient Archive").trim();
+            
+            const artImg = document.getElementById('album-art-img');
+            artImg.src = `https://i.ytimg.com/vi/${data.video_id}/hqdefault.jpg`;
+            artImg.style.opacity = state.isPlaying ? "0.4" : "0.15";
+        }
+
+        // --- Aesthetic Noise synthesis ---
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.connect(audioCtx.destination);
+            setNoiseVolume(document.getElementById('noise-slider').value);
+        }
+
+        function startNoise() {
+            initAudio();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (noiseSource) return;
+            
+            const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 6, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < data.length; i++) {
+                // Background floor
+                data[i] = (Math.random() * 2 - 1) * 0.004;
+                // Randomized clicks
+                if (Math.random() < 0.00001) data[i] += (Math.random() * 2 - 1) * 0.25;
+            }
+            
+            noiseSource = audioCtx.createBufferSource();
+            noiseSource.buffer = buffer;
+            noiseSource.loop = true;
+            const filter = this.audioCtx.createBiquadFilter();
+            filter.type = 'lowpass'; filter.frequency.value = 400;
+            noiseSource.connect(filter); filter.connect(masterGain);
+            noiseSource.start();
+        }
+
+        function stopNoise() { if (noiseSource) { noiseSource.stop(); noiseSource = null; } }
+        function setNoiseVolume(val) { if (masterGain) masterGain.gain.setTargetAtTime((val/100)*0.1, audioCtx.currentTime, 0.1); }
+
+        // --- Interaction ---
+        document.getElementById('play-btn').addEventListener('click', () => {
+            if (!state.isReady) return;
+            if (state.isPlaying) player.pauseVideo(); else player.playVideo();
+        });
+
+        document.getElementById('volume-slider').addEventListener('input', (e) => {
+            document.getElementById('vol-val').innerText = e.target.value;
+            if (state.isReady) player.setVolume(e.target.value);
+        });
+
+        document.getElementById('noise-slider').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            document.getElementById('noise-val').innerText = val < 10 ? '0'+val : val;
+            setNoiseVolume(val);
+        });
+
+        function changeMood(mood) {
+            state.currentMood = mood;
+            state.currentTrackIndex = 0;
+            document.querySelectorAll('.mood-item').forEach(el => el.classList.toggle('active', el.innerText.toLowerCase() === mood));
+            if (state.isReady) player.loadVideoById(MOODS[state.currentMood][state.currentTrackIndex]);
+        }
+
+        function nextTrack() {
+            state.currentTrackIndex = (state.currentTrackIndex + 1) % MOODS[state.currentMood].length;
+            if (state.isReady) player.loadVideoById(MOODS[state.currentMood][state.currentTrackIndex]);
+        }
+
+        function prevTrack() {
+            state.currentTrackIndex = (state.currentTrackIndex - 1 + MOODS[state.currentMood].length) % MOODS[state.currentMood].length;
+            if (state.isReady) player.loadVideoById(MOODS[state.currentMood][state.currentTrackIndex]);
+        }
+
+        function setTheme(theme) {
+            state.theme = theme;
+            localStorage.setItem('kai_theme', theme);
+            document.documentElement.className = `theme-${theme}`;
+            document.getElementById('themeToggle').querySelector('.theme-light-icon').classList.toggle('hidden', theme === 'dark');
+            document.getElementById('themeToggle').querySelector('.theme-dark-icon').classList.toggle('hidden', theme === 'light');
+        }
+
+        document.getElementById('themeToggle').addEventListener('click', () => setTheme(state.theme === 'dark' ? 'light' : 'dark'));
+
+    </script>
+</body>
+</html>
