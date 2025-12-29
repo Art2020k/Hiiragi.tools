@@ -6,8 +6,10 @@
     <title>SENSES : HAKU | The Aesthetic of Space</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- EXIF.js for metadata extraction -->
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Jost:wght@200;300;400&family=Manrope:wght@200;300;400&family=Shippori+Mincho:wght@400;500&family=Tenor+Sans&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Jost:wght@200;300;400;500&family=Manrope:wght@200;300;400&family=Shippori+Mincho:wght@400;500&family=Tenor+Sans&display=swap');
 
         :root {
             --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
@@ -50,7 +52,7 @@
         .viewer {
             position: relative; background-color: #E8E8E8;
             display: flex; align-items: center; justify-content: center;
-            overflow: hidden; padding: 60px;
+            overflow: hidden; padding: 50px;
         }
         
         .preview-frame {
@@ -68,36 +70,48 @@
 
         /* Sidebar Control */
         .sidebar {
-            background-color: #FFFFFF; padding: 4rem 3rem;
-            display: flex; flex-direction: column; gap: 3rem;
+            background-color: #FFFFFF; padding: 3rem 2.5rem;
+            display: flex; flex-direction: column; gap: 2rem;
             border-left: 1px solid #EEEEEE;
             z-index: 10;
+            overflow-y: auto;
         }
 
         .drop-zone {
-            width: 100%; height: 120px; border: 1px solid #EEE;
+            width: 100%; height: 100px; border: 1px solid #EEE;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             cursor: pointer; transition: all 0.3s; gap: 0.5rem;
         }
         .drop-zone:hover { border-color: #050505; background-color: #FAFAFA; }
         .drop-zone p { font-size: 8px; tracking-[0.2em] color: #AAA; text-transform: uppercase; }
 
-        /* Ratio Toggles */
-        .ratio-selector {
-            display: flex; flex-direction: column; gap: 1rem;
+        /* Custom Checkbox/Toggle */
+        .toggle-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.5rem 0;
         }
-        .ratio-options {
-            display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #EEE;
+        .toggle-switch {
+            width: 32px; height: 16px; border: 1px solid #DDD; position: relative; cursor: pointer;
+            transition: all 0.3s;
         }
-        .ratio-btn {
-            padding: 1rem; font-size: 10px; font-family: 'Tenor Sans';
-            letter-spacing: 0.2em; text-align: center; cursor: pointer;
+        .toggle-switch::after {
+            content: ''; position: absolute; left: 2px; top: 2px; width: 10px; height: 10px;
+            background: #DDD; transition: all 0.3s var(--ease-smooth);
+        }
+        .toggle-switch.active { border-color: #050505; }
+        .toggle-switch.active::after { left: 18px; background: #050505; }
+
+        /* Options */
+        .option-group { border: 1px solid #EEE; display: grid; grid-template-columns: 1fr 1fr; }
+        .option-btn {
+            padding: 0.75rem; font-size: 9px; font-family: 'Tenor Sans';
+            letter-spacing: 0.15em; text-align: center; cursor: pointer;
             transition: all 0.3s; opacity: 0.3;
         }
-        .ratio-btn.active { opacity: 1; background: #050505; color: #FFF; }
+        .option-btn.active { opacity: 1; background: #050505; color: #FFF; }
 
         .btn-action {
-            width: 100%; padding: 1.25rem; border: 1px solid #050505;
+            width: 100%; padding: 1rem; border: 1px solid #050505;
             background: transparent; color: #050505; font-family: 'Tenor Sans';
             font-size: 0.75rem; letter-spacing: 0.3em; transition: all 0.4s var(--ease-smooth);
             cursor: pointer; text-transform: uppercase;
@@ -109,8 +123,7 @@
         .info-panel b { color: #050505; font-weight: 400; }
 
         #export-canvas { display: none; }
-
-        .label-tech { font-size: 7px; tracking-[0.4em] color: #CCC; text-transform: uppercase; margin-bottom: 0.5rem; display: block; }
+        .label-tech { font-size: 7px; tracking-[0.4em] color: #CCC; text-transform: uppercase; margin-bottom: 0.25rem; display: block; }
     </style>
 </head>
 <body>
@@ -121,65 +134,80 @@
             <span class="char-kanji font-kanji">白</span>
             <span class="char-eng font-display">HAKU</span>
         </div>
-        <div class="mt-8 font-display text-[9px] opacity-0 animate-pulse tracking-[0.5em]">RATIO_STABILIZED_AIR</div>
+        <div class="mt-8 font-display text-[9px] opacity-0 animate-pulse tracking-[0.5em]">PRECISION_SPACE_ENGINE</div>
     </div>
 
-    <!-- UI -->
+    <!-- UI Layer -->
     <div id="ui-layer">
         
-        <!-- Section: Frame Viewer -->
+        <!-- Section: Viewer -->
         <section class="viewer">
             <div id="preview-frame" class="preview-frame opacity-0">
                 <img id="image-preview" src="" alt="">
             </div>
-            <div id="empty-state" class="absolute font-display text-[10px] text-[#CCC] tracking-[1.5em]">ESTABLISHING_SILENCE</div>
+            <div id="empty-state" class="absolute font-display text-[10px] text-[#CCC] tracking-[1.5em]">ARTIFACT_REQUIRED</div>
         </section>
 
-        <!-- Section: Parameters -->
+        <!-- Section: Sidebar -->
         <section class="sidebar">
-            <div class="header">
-                <h1 class="font-display text-xs">HAKU / RATIO CANVAS</h1>
-                <p class="text-[8px] text-[#BBB] mt-1 uppercase tracking-[0.4em]">The Aesthetics of Blank Space</p>
+            <div>
+                <h1 class="font-display text-xs">HAKU / RATIO + EXIF</h1>
+                <p class="text-[8px] text-[#BBB] mt-1 uppercase tracking-[0.4em]">Lossless Space Processing</p>
             </div>
 
-            <!-- Image Drop -->
-            <div class="space-y-2">
-                <span class="label-tech">Source_Input</span>
+            <!-- Upload Area -->
+            <div class="space-y-1">
+                <span class="label-tech text-[6px]">Source_artifact</span>
                 <div id="drop-zone" class="drop-zone">
-                    <i data-lucide="image" class="w-4 h-4 stroke-[1] text-[#CCC]"></i>
-                    <p>Select Artifact</p>
+                    <i data-lucide="camera" class="w-4 h-4 stroke-[1] text-[#CCC]"></i>
+                    <p>Load Image</p>
                     <input type="file" id="file-input" class="hidden" accept="image/*">
                 </div>
             </div>
 
-            <!-- Ratio Config -->
-            <div class="ratio-selector">
-                <span class="label-tech">Space_Ratio_Matrix</span>
-                <div class="ratio-options">
-                    <div class="ratio-btn active" data-ratio="1.618">1:1.618<br>GOLDEN</div>
-                    <div class="ratio-btn" data-ratio="1.732">1:1.732<br>PLATINUM</div>
+            <!-- Ratios -->
+            <div class="space-y-3">
+                <span class="label-tech text-[6px]">Aesthetic_ratio_matrix</span>
+                <div class="option-group">
+                    <div class="option-btn active" data-type="ratio" data-val="1.618">1:1.618</div>
+                    <div class="option-btn" data-type="ratio" data-val="1.732">1:1.732</div>
                 </div>
             </div>
 
-            <!-- Tech Details -->
-            <div class="info-panel">
-                <div class="flex justify-between"><span>Original_Dim</span><b id="info-res">-</b></div>
-                <div class="flex justify-between"><span>Target_Square</span><b id="info-out">-</b></div>
-                <div class="flex justify-between"><span>Degradation</span><b>ZERO_LOSS</b></div>
+            <!-- Metadata Toggle -->
+            <div class="space-y-2">
+                <span class="label-tech text-[6px]">Metadata_Notation</span>
+                <div class="toggle-row">
+                    <span class="text-[10px] uppercase tracking-widest text-[#999]">Stamp Exif Data</span>
+                    <div id="exif-toggle" class="toggle-switch"></div>
+                </div>
+                <div id="exif-readout" class="text-[8px] font-num text-[#CCC] leading-relaxed italic opacity-0 transition-opacity">
+                    - 
+                </div>
             </div>
 
-            <!-- Actions -->
+            <!-- Export Format -->
+            <div class="space-y-3">
+                <span class="label-tech text-[6px]">Output_architecture</span>
+                <div class="option-group">
+                    <div class="option-btn active" data-type="format" data-val="image/png">.PNG / LOSSLESS</div>
+                    <div class="option-btn" data-type="format" data-val="image/jpeg">.JPG / WEB</div>
+                </div>
+            </div>
+
+            <!-- Specs -->
+            <div class="info-panel pt-4 border-t border-[#F0F0F0]">
+                <div class="flex justify-between"><span>Input</span><b id="info-res">-</b></div>
+                <div class="flex justify-between"><span>Output</span><b id="info-out">-</b></div>
+                <div class="flex justify-between"><span>Engine</span><b>SENSES_HAKU_V3</b></div>
+            </div>
+
+            <!-- Action -->
             <div class="mt-auto space-y-4">
                 <button id="btn-download" class="btn-action" disabled>
                     Finalize Artifact
                 </button>
-                <p class="text-[7px] leading-relaxed text-[#CCC] uppercase tracking-[0.2em] text-center">
-                    Mathematical centering of raw pixels.<br>
-                    No compression. No resampling.
-                </p>
             </div>
-
-            <div class="font-display text-[8px] text-[#EEE] tracking-[0.6em] text-center">SENSES_ARCHIVE_HAKU_V2</div>
         </section>
     </div>
 
@@ -187,13 +215,18 @@
 
     <script>
         /**
-         * HAKU - The Aesthetics of Blank Space
-         * Lossless Framing Engine
+         * HAKU - The Aesthetics of Blank Space v3
+         * Functional Exif & Multi-format Export
          */
 
-        let sourceImage = null;
-        let originalName = "haku_artifact";
-        let activeRatio = 1.618;
+        const state = {
+            image: null,
+            filename: "haku_artifact",
+            ratio: 1.618,
+            exif: false,
+            format: "image/png",
+            metadata: null
+        };
 
         const dom = {
             intro: document.getElementById('intro'),
@@ -204,14 +237,13 @@
             previewImg: document.getElementById('image-preview'),
             emptyState: document.getElementById('empty-state'),
             btnDownload: document.getElementById('btn-download'),
-            canvas: document.getElementById('export-canvas'),
-            ratioBtns: document.querySelectorAll('.ratio-btn'),
-            // Info
+            exifToggle: document.getElementById('exif-toggle'),
+            exifReadout: document.getElementById('exif-readout'),
             infoRes: document.getElementById('info-res'),
-            infoOut: document.getElementById('info-out')
+            infoOut: document.getElementById('info-out'),
+            canvas: document.getElementById('export-canvas')
         };
 
-        // --- Init ---
         window.addEventListener('load', () => {
             lucide.createIcons();
             dom.intro.addEventListener('click', () => {
@@ -227,96 +259,140 @@
         function setupListeners() {
             dom.dropZone.addEventListener('click', () => dom.fileInput.click());
             dom.fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
-            
-            // Drag Drop
-            dom.dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dom.dropZone.classList.add('border-[#050505]'); });
-            dom.dropZone.addEventListener('dragleave', () => dom.dropZone.classList.remove('border-[#050505]'));
+
+            // Drag/Drop
+            dom.dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dom.dropZone.style.borderColor = "#050505"; });
+            dom.dropZone.addEventListener('dragleave', () => { dom.dropZone.style.borderColor = "#EEE"; });
             dom.dropZone.addEventListener('drop', (e) => {
                 e.preventDefault();
-                dom.dropZone.classList.remove('border-[#050505]');
+                dom.dropZone.style.borderColor = "#EEE";
                 handleFile(e.dataTransfer.files[0]);
             });
 
-            // Ratio Toggles
-            dom.ratioBtns.forEach(btn => {
+            // Options (Ratio & Format)
+            document.querySelectorAll('.option-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    dom.ratioBtns.forEach(b => b.classList.remove('active'));
+                    const type = btn.dataset.type;
+                    const val = btn.dataset.val;
+                    
+                    document.querySelectorAll(`.option-btn[data-type="${type}"]`).forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
-                    activeRatio = parseFloat(btn.dataset.ratio);
-                    updateStats();
+
+                    if(type === 'ratio') state.ratio = parseFloat(val);
+                    if(type === 'format') state.format = val;
+                    
+                    updateUI();
                 });
             });
 
-            dom.btnDownload.addEventListener('click', generateAndDownload);
+            // Exif Toggle
+            dom.exifToggle.addEventListener('click', () => {
+                state.exif = !state.exif;
+                dom.exifToggle.classList.toggle('active', state.exif);
+                dom.exifReadout.style.opacity = state.exif ? 1 : 0;
+            });
+
+            dom.btnDownload.addEventListener('click', processAndDownload);
         }
 
-        function handleFile(file) {
+        async function handleFile(file) {
             if (!file || !file.type.startsWith('image/')) return;
-            originalName = file.name.split('.')[0];
+            state.filename = file.name.split('.')[0];
+            
+            // Extract Exif
+            EXIF.getData(file, function() {
+                const tags = {
+                    f: EXIF.getTag(this, "FNumber"),
+                    ss: EXIF.getTag(this, "ExposureTime"),
+                    iso: EXIF.getTag(this, "ISOSpeedRatings"),
+                    fl: EXIF.getTag(this, "FocalLength")
+                };
+                
+                if(tags.f || tags.ss || tags.iso) {
+                    const fStr = tags.f ? `ƒ/${tags.f}` : "";
+                    const ssStr = tags.ss ? (tags.ss < 1 ? `1/${Math.round(1/tags.ss)}s` : `${tags.ss}s`) : "";
+                    const isoStr = tags.iso ? `ISO ${tags.iso}` : "";
+                    const flStr = tags.fl ? `${Math.round(tags.fl)}mm` : "";
+                    state.metadata = [fStr, ssStr, isoStr, flStr].filter(x => x).join("   ");
+                    dom.exifReadout.innerText = state.metadata;
+                } else {
+                    state.metadata = null;
+                    dom.exifReadout.innerText = "NO_METADATA_FOUND";
+                }
+            });
+
             const reader = new FileReader();
             reader.onload = (e) => {
                 const img = new Image();
                 img.onload = () => {
-                    sourceImage = img;
-                    displayArtifact(e.target.result);
+                    state.image = img;
+                    dom.previewImg.src = e.target.result;
+                    dom.previewFrame.classList.remove('opacity-0');
+                    dom.emptyState.classList.add('hidden');
+                    dom.btnDownload.disabled = false;
+                    updateUI();
                 };
                 img.src = e.target.result;
             };
             reader.readAsDataURL(file);
         }
 
-        function displayArtifact(src) {
-            dom.previewImg.src = src;
-            dom.previewFrame.classList.remove('opacity-0');
-            dom.emptyState.classList.add('hidden');
-            dom.btnDownload.disabled = false;
-            updateStats();
-        }
-
-        function updateStats() {
-            if (!sourceImage) return;
-            const w = sourceImage.naturalWidth;
-            const h = sourceImage.naturalHeight;
-            const maxSide = Math.max(w, h);
-            const targetSize = Math.round(maxSide * activeRatio);
+        function updateUI() {
+            if (!state.image) return;
+            const w = state.image.naturalWidth;
+            const h = state.image.naturalHeight;
+            const size = Math.round(Math.max(w, h) * state.ratio);
 
             dom.infoRes.innerText = `${w} x ${h} PX`;
-            dom.infoOut.innerText = `${targetSize} x ${targetSize} PX`;
+            dom.infoOut.innerText = `${size} x ${size} PX`;
 
-            // Adjust Preview Frame Aspect Ratio Logic (CSS Scale)
-            // Longest side becomes 1/activeRatio of the frame's 100%
-            const scale = (1 / activeRatio) * 100;
-            dom.previewImg.style.width = sourceImage.naturalWidth > sourceImage.naturalHeight ? `${scale}%` : 'auto';
-            dom.previewImg.style.height = sourceImage.naturalHeight >= sourceImage.naturalWidth ? `${scale}%` : 'auto';
+            const scale = (1 / state.ratio) * 100;
+            dom.previewImg.style.width = w > h ? `${scale}%` : 'auto';
+            dom.previewImg.style.height = h >= w ? `${scale}%` : 'auto';
         }
 
-        function generateAndDownload() {
-            if (!sourceImage) return;
-
-            const w = sourceImage.naturalWidth;
-            const h = sourceImage.naturalHeight;
-            const size = Math.round(Math.max(w, h) * activeRatio);
+        function processAndDownload() {
+            if (!state.image) return;
+            const w = state.image.naturalWidth;
+            const h = state.image.naturalHeight;
+            const size = Math.round(Math.max(w, h) * state.ratio);
             
             dom.canvas.width = size;
             dom.canvas.height = size;
             const ctx = dom.canvas.getContext('2d');
             
-            // Background: Pure Silence
+            // 1. Fill Background
             ctx.fillStyle = "#FFFFFF";
             ctx.fillRect(0, 0, size, size);
             
-            // Centering: Precision Placement
+            // 2. Draw Main Image (Lossless Centering)
             const dx = (size - w) / 2;
             const dy = (size - h) / 2;
+            ctx.drawImage(state.image, dx, dy, w, h);
             
-            // Lossless Pixel Drawing
-            ctx.drawImage(sourceImage, dx, dy, w, h);
+            // 3. Optional Exif Stamp
+            if (state.exif && state.metadata) {
+                const fontSize = Math.round(size * 0.008); // Scale based on canvas
+                ctx.fillStyle = "#BBBBBB";
+                ctx.font = `${fontSize}px "Tenor Sans", sans-serif`;
+                ctx.textAlign = "right";
+                ctx.textBaseline = "bottom";
+                
+                // Positioned bottom right with dynamic padding
+                const padding = Math.round(size * 0.04);
+                ctx.fillText(state.metadata.toUpperCase(), size - padding, size - padding);
+            }
             
+            // 4. Export
             const link = document.createElement('a');
-            link.download = `${originalName}_HAKU_RATIO.png`;
-            link.href = dom.canvas.toDataURL('image/png', 1.0);
+            const ext = state.format === "image/png" ? "png" : "jpg";
+            link.download = `${state.filename}_HAKU.${ext}`;
+            // If JPG, use high quality 0.95
+            link.href = dom.canvas.toDataURL(state.format, state.format === "image/jpeg" ? 0.95 : 1.0);
             link.click();
         }
+
     </script>
 </body>
 </html>
+
