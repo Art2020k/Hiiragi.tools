@@ -16,7 +16,6 @@
             --transition-heavy: all 1200ms var(--ease-smooth);
         }
 
-        /* モバイルでのスクロールを許可 */
         body {
             background-color: #F6F6F6;
             color: #050505;
@@ -31,6 +30,7 @@
 
         .font-kanji { font-family: 'Shippori Mincho', serif; }
         .font-display { font-family: 'Tenor Sans', sans-serif; letter-spacing: 0.4em; text-transform: uppercase; }
+        .font-num { font-family: 'Jost', sans-serif; }
 
         /* --- SENSES Intro --- */
         #intro {
@@ -72,7 +72,7 @@
             padding: 30px;
             min-height: 50vh;
         }
-        @media (min-width: 1024px) { .viewer { height: 100vh; padding: 60px; } }
+        @media (min-width: 1024px) { .viewer { height: 100vh; padding: 80px; } }
         
         .preview-frame {
             position: relative; background-color: #FFFFFF;
@@ -163,7 +163,7 @@
             <span class="char-kanji font-kanji">白</span>
             <span class="char-eng font-display">HAKU</span>
         </div>
-        <div class="mt-8 font-display text-[9px] opacity-0 animate-pulse tracking-[0.5em]">OPTIMIZED_MOBILE_FLOW</div>
+        <div class="mt-8 font-display text-[9px] opacity-0 animate-pulse tracking-[0.5em]">RATIO_STABILIZED_AIR</div>
     </div>
 
     <!-- UI Layer -->
@@ -180,8 +180,8 @@
             <!-- Section: Sidebar -->
             <section class="sidebar">
                 <div>
-                    <h1 class="font-display text-xs">HAKU / RATIO + EXIF</h1>
-                    <p class="text-[8px] text-[#BBB] mt-1 uppercase tracking-[0.4em]">Lossless Space Processing</p>
+                    <h1 class="font-display text-xs">HAKU / RATIO + EXIF V4</h1>
+                    <p class="text-[8px] text-[#BBB] mt-1 uppercase tracking-[0.4em]">The Aesthetics of Blank Space</p>
                 </div>
 
                 <!-- Upload Area -->
@@ -203,15 +203,17 @@
                     </div>
                 </div>
 
-                <!-- Metadata Toggle -->
+                <!-- Metadata Toggles -->
                 <div class="space-y-2">
-                    <span class="label-tech">Metadata_Notation</span>
+                    <span class="label-tech">Notation_matrix</span>
                     <div class="toggle-row">
                         <span class="text-[10px] uppercase tracking-widest text-[#999]">Stamp Exif Data</span>
                         <div id="exif-toggle" class="toggle-switch"></div>
                     </div>
-                    <div id="exif-readout" class="text-[8px] font-num text-[#CCC] leading-relaxed italic opacity-0 transition-opacity">
-                        - 
+                    
+                    <div id="exif-preview" class="space-y-2 py-2 px-3 border border-dashed border-[#F0F0F0] opacity-0 transition-opacity">
+                        <div id="exif-equipment" class="text-[8px] font-display text-[#888] tracking-widest">CAMERA | LENS</div>
+                        <div id="exif-settings" class="text-[8px] font-num text-[#AAA] tracking-widest italic">ƒ/0.0  1/000S  ISO 000  00MM</div>
                     </div>
                 </div>
 
@@ -228,7 +230,7 @@
                 <div class="info-panel pt-4 border-t border-[#F0F0F0]">
                     <div class="flex justify-between"><span>Input</span><b id="info-res">-</b></div>
                     <div class="flex justify-between"><span>Output</span><b id="info-out">-</b></div>
-                    <div class="flex justify-between"><span>Engine</span><b>SENSES_HAKU_V3.1</b></div>
+                    <div class="flex justify-between"><span>Engine</span><b>SENSES_HAKU_V4.0</b></div>
                 </div>
 
                 <!-- Action -->
@@ -246,8 +248,8 @@
 
     <script>
         /**
-         * HAKU - The Aesthetics of Blank Space v3.1
-         * Mobile Responsive Fix & Functional Exif
+         * HAKU - The Aesthetics of Blank Space v4.0
+         * Camera & Lens info added to Exif Logic
          */
 
         const state = {
@@ -256,7 +258,10 @@
             ratio: 1.618,
             exif: false,
             format: "image/png",
-            metadata: null
+            meta: {
+                equipment: null,
+                settings: null
+            }
         };
 
         const dom = {
@@ -269,7 +274,9 @@
             emptyState: document.getElementById('empty-state'),
             btnDownload: document.getElementById('btn-download'),
             exifToggle: document.getElementById('exif-toggle'),
-            exifReadout: document.getElementById('exif-readout'),
+            exifPreview: document.getElementById('exif-preview'),
+            exifEquipment: document.getElementById('exif-equipment'),
+            exifSettings: document.getElementById('exif-settings'),
             infoRes: document.getElementById('info-res'),
             infoOut: document.getElementById('info-out'),
             canvas: document.getElementById('export-canvas')
@@ -291,7 +298,7 @@
             dom.dropZone.addEventListener('click', () => dom.fileInput.click());
             dom.fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
 
-            // Drag/Drop
+            // Drag/Drop Visuals
             dom.dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dom.dropZone.style.borderColor = "#050505"; });
             dom.dropZone.addEventListener('dragleave', () => { dom.dropZone.style.borderColor = "#EEE"; });
             dom.dropZone.addEventListener('drop', (e) => {
@@ -300,7 +307,7 @@
                 handleFile(e.dataTransfer.files[0]);
             });
 
-            // Options
+            // Tab Buttons (Ratio / Format)
             document.querySelectorAll('.option-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const type = btn.dataset.type;
@@ -317,7 +324,7 @@
             dom.exifToggle.addEventListener('click', () => {
                 state.exif = !state.exif;
                 dom.exifToggle.classList.toggle('active', state.exif);
-                dom.exifReadout.style.opacity = state.exif ? 1 : 0;
+                dom.exifPreview.style.opacity = state.exif ? 1 : 0;
             });
 
             dom.btnDownload.addEventListener('click', processAndDownload);
@@ -327,25 +334,33 @@
             if (!file || !file.type.startsWith('image/')) return;
             state.filename = file.name.split('.')[0];
             
+            // Extract Detailed Exif
             EXIF.getData(file, function() {
                 const tags = {
+                    make: EXIF.getTag(this, "Make"),
+                    model: EXIF.getTag(this, "Model"),
+                    lens: EXIF.getTag(this, "LensModel") || EXIF.getTag(this, "UndefinedTag:0xA434"), // Fallback for some lens tags
                     f: EXIF.getTag(this, "FNumber"),
                     ss: EXIF.getTag(this, "ExposureTime"),
                     iso: EXIF.getTag(this, "ISOSpeedRatings"),
                     fl: EXIF.getTag(this, "FocalLength")
                 };
                 
-                if(tags.f || tags.ss || tags.iso) {
-                    const fStr = tags.f ? `ƒ/${tags.f}` : "";
-                    const ssStr = tags.ss ? (tags.ss < 1 ? `1/${Math.round(1/tags.ss)}s` : `${tags.ss}s`) : "";
-                    const isoStr = tags.iso ? `ISO ${tags.iso}` : "";
-                    const flStr = tags.fl ? `${Math.round(tags.fl)}mm` : "";
-                    state.metadata = [fStr, ssStr, isoStr, flStr].filter(x => x).join("   ");
-                    dom.exifReadout.innerText = state.metadata;
-                } else {
-                    state.metadata = null;
-                    dom.exifReadout.innerText = "NO_METADATA_FOUND";
-                }
+                // Format Equipment String
+                const camStr = tags.model || tags.make || "";
+                const lensStr = tags.lens || "";
+                state.meta.equipment = [camStr, lensStr].filter(x => x).join("  |  ").toUpperCase();
+
+                // Format Settings String
+                const fStr = tags.f ? `ƒ/${tags.f}` : "";
+                const ssStr = tags.ss ? (tags.ss < 1 ? `1/${Math.round(1/tags.ss)}S` : `${tags.ss}S`) : "";
+                const isoStr = tags.iso ? `ISO ${tags.iso}` : "";
+                const flStr = tags.fl ? `${Math.round(tags.fl)}MM` : "";
+                state.meta.settings = [fStr, ssStr, isoStr, flStr].filter(x => x).join("   ");
+
+                // Update UI Previews
+                dom.exifEquipment.innerText = state.meta.equipment || "NO EQUIPMENT DATA";
+                dom.exifSettings.innerText = state.meta.settings || "NO SETTINGS DATA";
             });
 
             const reader = new FileReader();
@@ -388,26 +403,43 @@
             dom.canvas.height = size;
             const ctx = dom.canvas.getContext('2d');
             
+            // 1. Foundation: Pure White
             ctx.fillStyle = "#FFFFFF";
             ctx.fillRect(0, 0, size, size);
             
+            // 2. Centering: Lossless Drawing
             const dx = (size - w) / 2;
             const dy = (size - h) / 2;
             ctx.drawImage(state.image, dx, dy, w, h);
             
-            if (state.exif && state.metadata) {
-                const fontSize = Math.round(size * 0.008);
-                ctx.fillStyle = "#BBBBBB";
-                ctx.font = `${fontSize}px "Tenor Sans", sans-serif`;
+            // 3. Notation: The Aesthetic Caption
+            if (state.exif) {
+                const padding = Math.round(size * 0.045); // Generous padding for elegance
                 ctx.textAlign = "right";
                 ctx.textBaseline = "bottom";
-                const padding = Math.round(size * 0.04);
-                ctx.fillText(state.metadata.toUpperCase(), size - padding, size - padding);
+
+                // Line 2: Settings (Bottom-most)
+                const settingsSize = Math.round(size * 0.0075);
+                ctx.fillStyle = "#BBBBBB";
+                ctx.font = `italic ${settingsSize}px "Jost", sans-serif`;
+                if(state.meta.settings) {
+                    ctx.fillText(state.meta.settings, size - padding, size - padding);
+                }
+
+                // Line 1: Equipment (Above settings)
+                const equipmentSize = Math.round(size * 0.0085);
+                ctx.fillStyle = "#999999";
+                ctx.font = `${equipmentSize}px "Tenor Sans", sans-serif`;
+                if(state.meta.equipment) {
+                    const lineSpacing = Math.round(size * 0.015);
+                    ctx.fillText(state.meta.equipment, size - padding, size - padding - lineSpacing);
+                }
             }
             
+            // 4. Fulfillment
             const link = document.createElement('a');
             const ext = state.format === "image/png" ? "png" : "jpg";
-            link.download = `${state.filename}_HAKU.${ext}`;
+            link.download = `${state.filename}_HAKU_ARCHIVE.${ext}`;
             link.href = dom.canvas.toDataURL(state.format, state.format === "image/jpeg" ? 0.95 : 1.0);
             link.click();
         }
