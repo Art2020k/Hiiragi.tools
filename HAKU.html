@@ -16,13 +16,15 @@
             --transition-heavy: all 1200ms var(--ease-smooth);
         }
 
+        /* モバイルでのスクロールを許可 */
         body {
             background-color: #F6F6F6;
             color: #050505;
             font-family: 'Manrope', sans-serif;
-            overflow: hidden;
-            height: 100vh;
-            width: 100vw;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            overflow-y: auto;
             user-select: none;
             -webkit-user-select: none;
         }
@@ -43,25 +45,45 @@
         .morphed .char-kanji { opacity: 0; filter: blur(24px); transform: scale(1.1); }
         .morphed .char-eng { opacity: 1; filter: blur(0px); transform: scale(1); }
 
-        /* --- Main UI --- */
-        #ui-layer { display: none; height: 100vh; width: 100vw; }
-        #ui-layer.ready { display: grid; grid-template-columns: 1fr 400px; }
-        @media (max-width: 1024px) { #ui-layer.ready { grid-template-columns: 1fr; grid-template-rows: 1fr auto; } }
+        /* --- Main UI Layout --- */
+        #ui-layer { 
+            display: none; 
+            min-height: 100vh;
+            width: 100vw; 
+        }
+        #ui-layer.ready { display: block; }
+
+        .app-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+        }
+        @media (min-width: 1024px) { 
+            .app-grid { 
+                grid-template-columns: 1fr 400px;
+                height: 100vh;
+                overflow: hidden;
+            } 
+        }
 
         /* Viewer Area */
         .viewer {
             position: relative; background-color: #E8E8E8;
             display: flex; align-items: center; justify-content: center;
-            overflow: hidden; padding: 50px;
+            padding: 30px;
+            min-height: 50vh;
         }
+        @media (min-width: 1024px) { .viewer { height: 100vh; padding: 60px; } }
         
         .preview-frame {
             position: relative; background-color: #FFFFFF;
             box-shadow: 0 50px 100px -30px rgba(0,0,0,0.08);
-            max-width: 100%; max-height: 100%;
+            width: 100%;
+            max-width: 500px;
             aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center;
             transition: var(--transition-heavy);
         }
+        @media (min-width: 1024px) { .preview-frame { max-width: 100%; max-height: 100%; } }
+        
         .preview-frame img { 
             max-width: 100%; max-height: 100%; 
             object-fit: contain; 
@@ -70,11 +92,17 @@
 
         /* Sidebar Control */
         .sidebar {
-            background-color: #FFFFFF; padding: 3rem 2.5rem;
+            background-color: #FFFFFF; padding: 2rem 1.5rem;
             display: flex; flex-direction: column; gap: 2rem;
-            border-left: 1px solid #EEEEEE;
-            z-index: 10;
-            overflow-y: auto;
+            border-top: 1px solid #EEEEEE;
+        }
+        @media (min-width: 1024px) { 
+            .sidebar { 
+                padding: 4rem 3rem; 
+                border-top: none; 
+                border-left: 1px solid #EEEEEE; 
+                overflow-y: auto;
+            } 
         }
 
         .drop-zone {
@@ -85,7 +113,7 @@
         .drop-zone:hover { border-color: #050505; background-color: #FAFAFA; }
         .drop-zone p { font-size: 8px; tracking-[0.2em] color: #AAA; text-transform: uppercase; }
 
-        /* Custom Checkbox/Toggle */
+        /* Custom Toggle */
         .toggle-row {
             display: flex; justify-content: space-between; align-items: center;
             padding: 0.5rem 0;
@@ -111,12 +139,13 @@
         .option-btn.active { opacity: 1; background: #050505; color: #FFF; }
 
         .btn-action {
-            width: 100%; padding: 1rem; border: 1px solid #050505;
+            width: 100%; padding: 1.25rem; border: 1px solid #050505;
             background: transparent; color: #050505; font-family: 'Tenor Sans';
             font-size: 0.75rem; letter-spacing: 0.3em; transition: all 0.4s var(--ease-smooth);
             cursor: pointer; text-transform: uppercase;
         }
         .btn-action:hover { background-color: #050505; color: #FFFFFF; }
+        .btn-action:active { transform: scale(0.98); }
         .btn-action:disabled { opacity: 0.1; cursor: not-allowed; border-color: #EEE; }
 
         .info-panel { font-size: 9px; color: #BBB; line-height: 2; font-family: 'Jost'; }
@@ -134,89 +163,91 @@
             <span class="char-kanji font-kanji">白</span>
             <span class="char-eng font-display">HAKU</span>
         </div>
-        <div class="mt-8 font-display text-[9px] opacity-0 animate-pulse tracking-[0.5em]">PRECISION_SPACE_ENGINE</div>
+        <div class="mt-8 font-display text-[9px] opacity-0 animate-pulse tracking-[0.5em]">OPTIMIZED_MOBILE_FLOW</div>
     </div>
 
     <!-- UI Layer -->
     <div id="ui-layer">
-        
-        <!-- Section: Viewer -->
-        <section class="viewer">
-            <div id="preview-frame" class="preview-frame opacity-0">
-                <img id="image-preview" src="" alt="">
-            </div>
-            <div id="empty-state" class="absolute font-display text-[10px] text-[#CCC] tracking-[1.5em]">ARTIFACT_REQUIRED</div>
-        </section>
-
-        <!-- Section: Sidebar -->
-        <section class="sidebar">
-            <div>
-                <h1 class="font-display text-xs">HAKU / RATIO + EXIF</h1>
-                <p class="text-[8px] text-[#BBB] mt-1 uppercase tracking-[0.4em]">Lossless Space Processing</p>
-            </div>
-
-            <!-- Upload Area -->
-            <div class="space-y-1">
-                <span class="label-tech text-[6px]">Source_artifact</span>
-                <div id="drop-zone" class="drop-zone">
-                    <i data-lucide="camera" class="w-4 h-4 stroke-[1] text-[#CCC]"></i>
-                    <p>Load Image</p>
-                    <input type="file" id="file-input" class="hidden" accept="image/*">
+        <div class="app-grid">
+            <!-- Section: Viewer -->
+            <section class="viewer">
+                <div id="preview-frame" class="preview-frame opacity-0">
+                    <img id="image-preview" src="" alt="">
                 </div>
-            </div>
+                <div id="empty-state" class="absolute font-display text-[10px] text-[#CCC] tracking-[1.5em]">ARTIFACT_REQUIRED</div>
+            </section>
 
-            <!-- Ratios -->
-            <div class="space-y-3">
-                <span class="label-tech text-[6px]">Aesthetic_ratio_matrix</span>
-                <div class="option-group">
-                    <div class="option-btn active" data-type="ratio" data-val="1.618">1:1.618</div>
-                    <div class="option-btn" data-type="ratio" data-val="1.732">1:1.732</div>
+            <!-- Section: Sidebar -->
+            <section class="sidebar">
+                <div>
+                    <h1 class="font-display text-xs">HAKU / RATIO + EXIF</h1>
+                    <p class="text-[8px] text-[#BBB] mt-1 uppercase tracking-[0.4em]">Lossless Space Processing</p>
                 </div>
-            </div>
 
-            <!-- Metadata Toggle -->
-            <div class="space-y-2">
-                <span class="label-tech text-[6px]">Metadata_Notation</span>
-                <div class="toggle-row">
-                    <span class="text-[10px] uppercase tracking-widest text-[#999]">Stamp Exif Data</span>
-                    <div id="exif-toggle" class="toggle-switch"></div>
+                <!-- Upload Area -->
+                <div class="space-y-1">
+                    <span class="label-tech">Source_input</span>
+                    <div id="drop-zone" class="drop-zone">
+                        <i data-lucide="camera" class="w-4 h-4 stroke-[1] text-[#CCC]"></i>
+                        <p>Load Image</p>
+                        <input type="file" id="file-input" class="hidden" accept="image/*">
+                    </div>
                 </div>
-                <div id="exif-readout" class="text-[8px] font-num text-[#CCC] leading-relaxed italic opacity-0 transition-opacity">
-                    - 
+
+                <!-- Ratios -->
+                <div class="space-y-3">
+                    <span class="label-tech">Aesthetic_ratio</span>
+                    <div class="option-group">
+                        <div class="option-btn active" data-type="ratio" data-val="1.618">1:1.618</div>
+                        <div class="option-btn" data-type="ratio" data-val="1.732">1:1.732</div>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Export Format -->
-            <div class="space-y-3">
-                <span class="label-tech text-[6px]">Output_architecture</span>
-                <div class="option-group">
-                    <div class="option-btn active" data-type="format" data-val="image/png">.PNG / LOSSLESS</div>
-                    <div class="option-btn" data-type="format" data-val="image/jpeg">.JPG / WEB</div>
+                <!-- Metadata Toggle -->
+                <div class="space-y-2">
+                    <span class="label-tech">Metadata_Notation</span>
+                    <div class="toggle-row">
+                        <span class="text-[10px] uppercase tracking-widest text-[#999]">Stamp Exif Data</span>
+                        <div id="exif-toggle" class="toggle-switch"></div>
+                    </div>
+                    <div id="exif-readout" class="text-[8px] font-num text-[#CCC] leading-relaxed italic opacity-0 transition-opacity">
+                        - 
+                    </div>
                 </div>
-            </div>
 
-            <!-- Specs -->
-            <div class="info-panel pt-4 border-t border-[#F0F0F0]">
-                <div class="flex justify-between"><span>Input</span><b id="info-res">-</b></div>
-                <div class="flex justify-between"><span>Output</span><b id="info-out">-</b></div>
-                <div class="flex justify-between"><span>Engine</span><b>SENSES_HAKU_V3</b></div>
-            </div>
+                <!-- Export Format -->
+                <div class="space-y-3">
+                    <span class="label-tech">Output_format</span>
+                    <div class="option-group">
+                        <div class="option-btn active" data-type="format" data-val="image/png">.PNG / LOSSLESS</div>
+                        <div class="option-btn" data-type="format" data-val="image/jpeg">.JPG / WEB</div>
+                    </div>
+                </div>
 
-            <!-- Action -->
-            <div class="mt-auto space-y-4">
-                <button id="btn-download" class="btn-action" disabled>
-                    Finalize Artifact
-                </button>
-            </div>
-        </section>
+                <!-- Specs -->
+                <div class="info-panel pt-4 border-t border-[#F0F0F0]">
+                    <div class="flex justify-between"><span>Input</span><b id="info-res">-</b></div>
+                    <div class="flex justify-between"><span>Output</span><b id="info-out">-</b></div>
+                    <div class="flex justify-between"><span>Engine</span><b>SENSES_HAKU_V3.1</b></div>
+                </div>
+
+                <!-- Action -->
+                <div class="mt-4 lg:mt-auto space-y-6">
+                    <button id="btn-download" class="btn-action" disabled>
+                        Finalize Artifact
+                    </button>
+                    <div class="font-display text-[8px] text-[#EEE] tracking-[0.6em] text-center pb-8 lg:pb-0">SENSES_ARCHIVE_HAKU</div>
+                </div>
+            </section>
+        </div>
     </div>
 
     <canvas id="export-canvas"></canvas>
 
     <script>
         /**
-         * HAKU - The Aesthetics of Blank Space v3
-         * Functional Exif & Multi-format Export
+         * HAKU - The Aesthetics of Blank Space v3.1
+         * Mobile Responsive Fix & Functional Exif
          */
 
         const state = {
@@ -269,18 +300,15 @@
                 handleFile(e.dataTransfer.files[0]);
             });
 
-            // Options (Ratio & Format)
+            // Options
             document.querySelectorAll('.option-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const type = btn.dataset.type;
                     const val = btn.dataset.val;
-                    
                     document.querySelectorAll(`.option-btn[data-type="${type}"]`).forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
-
                     if(type === 'ratio') state.ratio = parseFloat(val);
                     if(type === 'format') state.format = val;
-                    
                     updateUI();
                 });
             });
@@ -299,7 +327,6 @@
             if (!file || !file.type.startsWith('image/')) return;
             state.filename = file.name.split('.')[0];
             
-            // Extract Exif
             EXIF.getData(file, function() {
                 const tags = {
                     f: EXIF.getTag(this, "FNumber"),
@@ -361,33 +388,26 @@
             dom.canvas.height = size;
             const ctx = dom.canvas.getContext('2d');
             
-            // 1. Fill Background
             ctx.fillStyle = "#FFFFFF";
             ctx.fillRect(0, 0, size, size);
             
-            // 2. Draw Main Image (Lossless Centering)
             const dx = (size - w) / 2;
             const dy = (size - h) / 2;
             ctx.drawImage(state.image, dx, dy, w, h);
             
-            // 3. Optional Exif Stamp
             if (state.exif && state.metadata) {
-                const fontSize = Math.round(size * 0.008); // Scale based on canvas
+                const fontSize = Math.round(size * 0.008);
                 ctx.fillStyle = "#BBBBBB";
                 ctx.font = `${fontSize}px "Tenor Sans", sans-serif`;
                 ctx.textAlign = "right";
                 ctx.textBaseline = "bottom";
-                
-                // Positioned bottom right with dynamic padding
                 const padding = Math.round(size * 0.04);
                 ctx.fillText(state.metadata.toUpperCase(), size - padding, size - padding);
             }
             
-            // 4. Export
             const link = document.createElement('a');
             const ext = state.format === "image/png" ? "png" : "jpg";
             link.download = `${state.filename}_HAKU.${ext}`;
-            // If JPG, use high quality 0.95
             link.href = dom.canvas.toDataURL(state.format, state.format === "image/jpeg" ? 0.95 : 1.0);
             link.click();
         }
