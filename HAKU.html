@@ -129,13 +129,17 @@
         .toggle-switch.active { border-color: #050505; }
         .toggle-switch.active::after { left: 18px; background: #050505; }
 
-        /* Options */
-        .option-group { border: 1px solid #EEE; display: grid; grid-template-columns: 1fr 1fr; }
+        /* Options Grid */
+        .option-group { border: 1px solid #EEE; display: grid; grid-template-columns: repeat(3, 1fr); }
+        .format-group { grid-template-columns: 1fr 1fr; }
+        
         .option-btn {
-            padding: 0.75rem; font-size: 9px; font-family: 'Tenor Sans';
-            letter-spacing: 0.15em; text-align: center; cursor: pointer;
-            transition: all 0.3s; opacity: 0.3;
+            padding: 0.75rem 0.25rem; font-size: 8px; font-family: 'Tenor Sans';
+            letter-spacing: 0.1em; text-align: center; cursor: pointer;
+            transition: all 0.3s; opacity: 0.3; line-height: 1.4;
+            border-right: 1px solid #EEE;
         }
+        .option-btn:last-child { border-right: none; }
         .option-btn.active { opacity: 1; background: #050505; color: #FFF; }
 
         .btn-action {
@@ -180,7 +184,7 @@
             <!-- Section: Sidebar -->
             <section class="sidebar">
                 <div>
-                    <h1 class="font-display text-xs">HAKU / RATIO + EXIF V4</h1>
+                    <h1 class="font-display text-xs">HAKU / RATIO + EXIF V4.1</h1>
                     <p class="text-[8px] text-[#BBB] mt-1 uppercase tracking-[0.4em]">The Aesthetics of Blank Space</p>
                 </div>
 
@@ -196,10 +200,11 @@
 
                 <!-- Ratios -->
                 <div class="space-y-3">
-                    <span class="label-tech">Aesthetic_ratio</span>
+                    <span class="label-tech">Aesthetic_ratio_matrix</span>
                     <div class="option-group">
-                        <div class="option-btn active" data-type="ratio" data-val="1.618">1:1.618</div>
-                        <div class="option-btn" data-type="ratio" data-val="1.732">1:1.732</div>
+                        <div class="option-btn active" data-type="ratio" data-val="1.414">1:1.414<br>SILVER</div>
+                        <div class="option-btn" data-type="ratio" data-val="1.618">1:1.618<br>GOLDEN</div>
+                        <div class="option-btn" data-type="ratio" data-val="1.732">1:1.732<br>PLATINUM</div>
                     </div>
                 </div>
 
@@ -212,15 +217,15 @@
                     </div>
                     
                     <div id="exif-preview" class="space-y-2 py-2 px-3 border border-dashed border-[#F0F0F0] opacity-0 transition-opacity">
-                        <div id="exif-equipment" class="text-[8px] font-display text-[#888] tracking-widest">CAMERA | LENS</div>
+                        <div id="exif-equipment" class="text-[8px] font-display text-[#888] tracking-widest uppercase">CAMERA | LENS</div>
                         <div id="exif-settings" class="text-[8px] font-num text-[#AAA] tracking-widest italic">ƒ/0.0  1/000S  ISO 000  00MM</div>
                     </div>
                 </div>
 
                 <!-- Export Format -->
                 <div class="space-y-3">
-                    <span class="label-tech">Output_format</span>
-                    <div class="option-group">
+                    <span class="label-tech">Output_architecture</span>
+                    <div class="option-group format-group">
                         <div class="option-btn active" data-type="format" data-val="image/png">.PNG / LOSSLESS</div>
                         <div class="option-btn" data-type="format" data-val="image/jpeg">.JPG / WEB</div>
                     </div>
@@ -230,7 +235,7 @@
                 <div class="info-panel pt-4 border-t border-[#F0F0F0]">
                     <div class="flex justify-between"><span>Input</span><b id="info-res">-</b></div>
                     <div class="flex justify-between"><span>Output</span><b id="info-out">-</b></div>
-                    <div class="flex justify-between"><span>Engine</span><b>SENSES_HAKU_V4.0</b></div>
+                    <div class="flex justify-between"><span>Engine</span><b>SENSES_HAKU_V4.1</b></div>
                 </div>
 
                 <!-- Action -->
@@ -248,14 +253,14 @@
 
     <script>
         /**
-         * HAKU - The Aesthetics of Blank Space v4.0
-         * Camera & Lens info added to Exif Logic
+         * HAKU - The Aesthetics of Blank Space v4.1
+         * Added Silver Ratio (1.414) for tighter borders
          */
 
         const state = {
             image: null,
             filename: "haku_artifact",
-            ratio: 1.618,
+            ratio: 1.414,
             exif: false,
             format: "image/png",
             meta: {
@@ -298,7 +303,6 @@
             dom.dropZone.addEventListener('click', () => dom.fileInput.click());
             dom.fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
 
-            // Drag/Drop Visuals
             dom.dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dom.dropZone.style.borderColor = "#050505"; });
             dom.dropZone.addEventListener('dragleave', () => { dom.dropZone.style.borderColor = "#EEE"; });
             dom.dropZone.addEventListener('drop', (e) => {
@@ -307,7 +311,6 @@
                 handleFile(e.dataTransfer.files[0]);
             });
 
-            // Tab Buttons (Ratio / Format)
             document.querySelectorAll('.option-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const type = btn.dataset.type;
@@ -320,7 +323,6 @@
                 });
             });
 
-            // Exif Toggle
             dom.exifToggle.addEventListener('click', () => {
                 state.exif = !state.exif;
                 dom.exifToggle.classList.toggle('active', state.exif);
@@ -334,31 +336,27 @@
             if (!file || !file.type.startsWith('image/')) return;
             state.filename = file.name.split('.')[0];
             
-            // Extract Detailed Exif
             EXIF.getData(file, function() {
                 const tags = {
                     make: EXIF.getTag(this, "Make"),
                     model: EXIF.getTag(this, "Model"),
-                    lens: EXIF.getTag(this, "LensModel") || EXIF.getTag(this, "UndefinedTag:0xA434"), // Fallback for some lens tags
+                    lens: EXIF.getTag(this, "LensModel") || EXIF.getTag(this, "UndefinedTag:0xA434"),
                     f: EXIF.getTag(this, "FNumber"),
                     ss: EXIF.getTag(this, "ExposureTime"),
                     iso: EXIF.getTag(this, "ISOSpeedRatings"),
                     fl: EXIF.getTag(this, "FocalLength")
                 };
                 
-                // Format Equipment String
                 const camStr = tags.model || tags.make || "";
                 const lensStr = tags.lens || "";
                 state.meta.equipment = [camStr, lensStr].filter(x => x).join("  |  ").toUpperCase();
 
-                // Format Settings String
                 const fStr = tags.f ? `ƒ/${tags.f}` : "";
                 const ssStr = tags.ss ? (tags.ss < 1 ? `1/${Math.round(1/tags.ss)}S` : `${tags.ss}S`) : "";
                 const isoStr = tags.iso ? `ISO ${tags.iso}` : "";
                 const flStr = tags.fl ? `${Math.round(tags.fl)}MM` : "";
                 state.meta.settings = [fStr, ssStr, isoStr, flStr].filter(x => x).join("   ");
 
-                // Update UI Previews
                 dom.exifEquipment.innerText = state.meta.equipment || "NO EQUIPMENT DATA";
                 dom.exifSettings.innerText = state.meta.settings || "NO SETTINGS DATA";
             });
@@ -403,22 +401,18 @@
             dom.canvas.height = size;
             const ctx = dom.canvas.getContext('2d');
             
-            // 1. Foundation: Pure White
             ctx.fillStyle = "#FFFFFF";
             ctx.fillRect(0, 0, size, size);
             
-            // 2. Centering: Lossless Drawing
             const dx = (size - w) / 2;
             const dy = (size - h) / 2;
             ctx.drawImage(state.image, dx, dy, w, h);
             
-            // 3. Notation: The Aesthetic Caption
             if (state.exif) {
-                const padding = Math.round(size * 0.045); // Generous padding for elegance
+                const padding = Math.round(size * 0.045);
                 ctx.textAlign = "right";
                 ctx.textBaseline = "bottom";
 
-                // Line 2: Settings (Bottom-most)
                 const settingsSize = Math.round(size * 0.0075);
                 ctx.fillStyle = "#BBBBBB";
                 ctx.font = `italic ${settingsSize}px "Jost", sans-serif`;
@@ -426,7 +420,6 @@
                     ctx.fillText(state.meta.settings, size - padding, size - padding);
                 }
 
-                // Line 1: Equipment (Above settings)
                 const equipmentSize = Math.round(size * 0.0085);
                 ctx.fillStyle = "#999999";
                 ctx.font = `${equipmentSize}px "Tenor Sans", sans-serif`;
@@ -436,7 +429,6 @@
                 }
             }
             
-            // 4. Fulfillment
             const link = document.createElement('a');
             const ext = state.format === "image/png" ? "png" : "jpg";
             link.download = `${state.filename}_HAKU_ARCHIVE.${ext}`;
