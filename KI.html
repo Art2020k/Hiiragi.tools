@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SENSES : KI | AI Architectural Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jost:wght@200;300;400;500;600&family=Manrope:wght@200;300;400&family=Shippori+Mincho:wght@400;500;700&family=Tenor+Sans&display=swap');
+
+        :root {
+            --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+            --transition-heavy: all 1200ms var(--ease-smooth);
+            --accent-gold: #FFBF00;
+        }
+
+        body {
+            background-color: #F6F6F6;
+            color: #050505;
+            font-family: 'Manrope', sans-serif;
+            margin: 0; padding: 0;
+            overflow-x: hidden; overflow-y: auto;
+            user-select: none; -webkit-user-select: none;
+        }
+
+        .font-kanji { font-family: 'Shippori Mincho', serif; }
+        .font-display { font-family: 'Tenor Sans', sans-serif; letter-spacing: 0.4em; text-transform: uppercase; }
+        .font-num { font-family: 'Jost', sans-serif; }
+
+        /* --- SENSES Intro --- */
+        #intro {
+            position: fixed; inset: 0; z-index: 100; background-color: #FFFFFF;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 1.5s var(--ease-smooth), visibility 1.5s; cursor: pointer;
+        }
+        #intro.hidden-intro { opacity: 0; visibility: hidden; pointer-events: none; }
+        .morph-container { position: relative; height: 120px; display: flex; align-items: center; justify-content: center; }
+        .char-kanji { font-size: 5rem; color: #050505; position: absolute; opacity: 1; filter: blur(0px); transition: all 1.5s var(--ease-smooth); }
+        .char-eng { font-family: 'Tenor Sans', sans-serif; font-size: 3rem; letter-spacing: 0.5em; color: #050505; position: absolute; opacity: 0; filter: blur(16px); transform: scale(0.9); transition: all 1.5s var(--ease-smooth); }
+        .morphed .char-kanji { opacity: 0; filter: blur(24px); transform: scale(1.1); }
+        .morphed .char-eng { opacity: 1; filter: blur(0px); transform: scale(1); }
+
+        /* --- UI Layout --- */
+        #ui-layer { display: none; min-height: 100vh; width: 100vw; }
+        #ui-layer.ready { display: block; }
+        
+        .app-grid { display: grid; grid-template-columns: 1fr; }
+        @media (min-width: 1024px) {
+            .app-grid { grid-template-columns: 1fr 420px; height: 100vh; overflow: hidden; }
+        }
+
+        .editor {
+            position: relative; background-color: #E8E8E8;
+            display: flex; align-items: center; justify-content: center;
+            padding: 30px; min-height: 50vh;
+        }
+        @media (min-width: 1024px) { .editor { height: 100vh; padding: 60px; } }
+
+        .image-container {
+            position: relative; line-height: 0;
+            box-shadow: 0 40px 100px -20px rgba(0,0,0,0.1);
+            max-width: 100%; max-height: 100%;
+        }
+        #target-image {
+            max-width: 100%; max-height: 70vh; pointer-events: none;
+            display: block; opacity: 0; transition: opacity 1s;
+        }
+
+        #overlay-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+
+        .sidebar {
+            background-color: #FFFFFF; padding: 2rem 1.5rem;
+            display: flex; flex-direction: column; gap: 1.5rem;
+            border-top: 1px solid #EEEEEE;
+        }
+        @media (min-width: 1024px) {
+            .sidebar { padding: 3rem 2.5rem; border-top: none; border-left: 1px solid #EEEEEE; overflow-y: auto; }
+        }
+
+        .drop-zone {
+            width: 100%; height: 80px; border: 1px solid #EEE;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.3s; gap: 0.5rem;
+        }
+        .drop-zone:hover { border-color: #050505; background-color: #FAFAFA; }
+        .drop-zone p { font-size: 8px; tracking-[0.2em] color: #AAA; text-transform: uppercase; }
+
+        .critique-box {
+            background: #F9F9F9; border: 1px solid #EEE; padding: 1.5rem;
+            font-size: 11px; line-height: 1.8; color: #444;
+        }
+        .score-display {
+            font-family: 'Tenor Sans'; font-size: 2.5rem; font-weight: 200;
+            letter-spacing: -0.05em; color: #050505; border-bottom: 1px solid #EEE;
+            margin-bottom: 1rem; padding-bottom: 0.5rem;
+        }
+
+        .btn-action {
+            width: 100%; padding: 1.25rem; border: 1px solid #050505;
+            background: transparent; color: #050505; font-family: 'Tenor Sans';
+            font-size: 0.75rem; letter-spacing: 0.3em; transition: all 0.4s var(--ease-smooth);
+            cursor: pointer; text-transform: uppercase;
+            display: flex; align-items: center; justify-content: center; gap: 0.75rem;
+        }
+        .btn-action:hover { background-color: #050505; color: #FFFFFF; }
+        .btn-action:disabled { opacity: 0.1; cursor: not-allowed; border-color: #EEE; }
+
+        .label-tech { font-size: 7px; tracking-[0.4em] color: #CCC; text-transform: uppercase; margin-bottom: 0.25rem; display: block; }
+        
+        .ai-loading {
+            width: 100%; height: 2px; background: #EEE; position: relative; overflow: hidden; margin: 1rem 0;
+        }
+        .ai-loading::after {
+            content: ''; position: absolute; left: -50%; width: 50%; height: 100%;
+            background: #050505; animation: loading 2s infinite linear;
+        }
+        @keyframes loading { from { left: -50%; } to { left: 100%; } }
+
+        #export-canvas { display: none; }
+        .message-layer {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: #050505; color: #FFF; padding: 12px 24px; font-size: 10px;
+            letter-spacing: 0.2em; text-transform: uppercase; z-index: 1000;
+            display: none; transition: opacity 0.3s; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Intro -->
+    <div id="intro">
+        <div class="morph-container">
+            <span class="char-kanji font-kanji">軌</span>
+            <span class="char-eng font-display">KI</span>
+        </div>
+        <div class="mt-8 font-display text-[9px] opacity-0 animate-pulse tracking-[0.5em]">ARCHITECTURAL_ANALYSIS_V3.4</div>
+    </div>
+
+    <!-- UI Layer -->
+    <div id="ui-layer">
+        <div class="app-grid">
+            <section class="editor">
+                <div id="image-frame" class="image-container hidden">
+                    <img id="target-image" draggable="false">
+                    <canvas id="overlay-canvas"></canvas>
+                </div>
+                <div id="empty-state" class="absolute font-display text-[10px] text-[#CCC] tracking-[1.5em]">SOURCE_ARTIFACT_REQUIRED</div>
+            </section>
+
+            <section class="sidebar">
+                <div class="header">
+                    <h1 class="font-display text-xs">KI / ARCHITECTURAL ANALYSIS</h1>
+                    <p class="text-[8px] text-[#BBB] mt-1 uppercase tracking-[0.4em]">Integrated Vision & Metadata Engine</p>
+                </div>
+
+                <div class="space-y-1">
+                    <span class="label-tech">Input_Artifact</span>
+                    <div id="drop-zone" class="drop-zone">
+                        <i data-lucide="upload" class="w-4 h-4 stroke-[1] text-[#CCC]"></i>
+                        <p>Load Photo</p>
+                        <input type="file" id="file-input" class="hidden" accept="image/*">
+                    </div>
+                </div>
+
+                <div id="exif-summary" class="text-[9px] font-num text-[#999] tracking-widest px-2 py-1 border border-dashed border-[#F0F0F0] hidden">
+                    -
+                </div>
+
+                <button id="btn-analyze" class="btn-action" disabled>
+                    <i data-lucide="scan-eye" class="w-4 h-4"></i> Run AI Inspection
+                </button>
+
+                <div id="loading-bar" class="ai-loading hidden"></div>
+
+                <!-- Critique Section -->
+                <div id="critique-section" class="space-y-2 opacity-0 transition-opacity duration-1000">
+                    <span class="label-tech">Analysis_Report</span>
+                    <div class="critique-box">
+                        <div class="score-display"><span id="score-val">00</span><span class="text-xs ml-1 opacity-40">/ 100</span></div>
+                        <div id="critique-text" class="whitespace-pre-wrap text-[11px] leading-[1.8] font-kanji">Processing vision...</div>
+                    </div>
+                </div>
+
+                <!-- Export -->
+                <div class="mt-auto space-y-4">
+                    <button id="btn-download" class="btn-action" disabled>
+                        Export Blueprint
+                    </button>
+                    <div class="font-display text-[8px] text-[#EEE] tracking-[0.6em] text-center pb-8 lg:pb-0">SENSES_ARCHIVE_KI_3.4</div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div id="message-box" class="message-layer"></div>
+    <canvas id="export-canvas"></canvas>
+
+    <script>
+        /**
+         * SENSES : KI v3.4 | AI Architectural Analyzer
+         * Improved: Strict error handling, JSON extraction, and display sync.
+         */
+
+        const apiKey = ""; 
+        const state = {
+            image: null,
+            imageData: null,
+            filename: "ki_blueprint",
+            analysis: null,
+            meta: null
+        };
+
+        const dom = {
+            intro: document.getElementById('intro'),
+            ui: document.getElementById('ui-layer'),
+            dropZone: document.getElementById('drop-zone'),
+            fileInput: document.getElementById('file-input'),
+            targetImage: document.getElementById('target-image'),
+            imageFrame: document.getElementById('image-frame'),
+            overlayCanvas: document.getElementById('overlay-canvas'),
+            emptyState: document.getElementById('empty-state'),
+            exifSummary: document.getElementById('exif-summary'),
+            btnAnalyze: document.getElementById('btn-analyze'),
+            btnDownload: document.getElementById('btn-download'),
+            loadingBar: document.getElementById('loading-bar'),
+            critiqueSection: document.getElementById('critique-section'),
+            scoreVal: document.getElementById('score-val'),
+            critiqueText: document.getElementById('critique-text'),
+            exportCanvas: document.getElementById('export-canvas'),
+            msgBox: document.getElementById('message-box')
+        };
+
+        window.addEventListener('load', () => {
+            lucide.createIcons();
+            dom.intro.addEventListener('click', () => {
+                dom.intro.classList.add('morphed');
+                setTimeout(() => {
+                    dom.intro.classList.add('hidden-intro');
+                    dom.ui.classList.add('ready');
+                }, 1400);
+            });
+            setupListeners();
+        });
+
+        function setupListeners() {
+            dom.dropZone.addEventListener('click', () => dom.fileInput.click());
+            dom.fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+            dom.btnAnalyze.addEventListener('click', runAIAnalysis);
+            dom.btnDownload.addEventListener('click', downloadBlueprint);
+            window.addEventListener('resize', syncCanvasSize);
+        }
+
+        function handleFile(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+            state.filename = file.name.split('.')[0];
+            
+            EXIF.getData(file, function() {
+                const tags = {
+                    make: EXIF.getTag(this, "Make"),
+                    model: EXIF.getTag(this, "Model"),
+                    f: EXIF.getTag(this, "FNumber"),
+                    ss: EXIF.getTag(this, "ExposureTime"),
+                    iso: EXIF.getTag(this, "ISOSpeedRatings"),
+                    fl: EXIF.getTag(this, "FocalLength")
+                };
+                state.meta = tags;
+                const camStr = tags.model || tags.make || "";
+                const settingsStr = tags.f ? `ƒ/${tags.f}   1/${Math.round(1/tags.ss)}s   ISO ${tags.iso}   ${Math.round(tags.fl)}mm` : "Metadata Sparse";
+                dom.exifSummary.innerText = `${camStr} | ${settingsStr}`.toUpperCase();
+                dom.exifSummary.classList.remove('hidden');
+            });
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                state.imageData = e.target.result;
+                const img = new Image();
+                img.onload = () => {
+                    state.image = img;
+                    dom.targetImage.src = e.target.result;
+                    dom.targetImage.style.opacity = 1;
+                    dom.imageFrame.classList.remove('hidden');
+                    dom.emptyState.classList.add('hidden');
+                    dom.btnAnalyze.disabled = false;
+                    dom.targetImage.style.filter = 'none'; 
+                    dom.critiqueSection.style.opacity = 0;
+                    dom.btnDownload.disabled = true;
+                    syncCanvasSize();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function syncCanvasSize() {
+            if(!state.image) return;
+            dom.overlayCanvas.width = state.image.naturalWidth;
+            dom.overlayCanvas.height = state.image.naturalHeight;
+        }
+
+        function showMessage(msg) {
+            dom.msgBox.innerText = msg;
+            dom.msgBox.style.display = 'block';
+            dom.msgBox.style.opacity = '1';
+            setTimeout(() => {
+                dom.msgBox.style.opacity = '0';
+                setTimeout(() => dom.msgBox.style.display = 'none', 300);
+            }, 5000);
+        }
+
+        async function fetchWithRetry(url, options, maxRetries = 5) {
+            let delay = 1000;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    const responseText = await response.text();
+                    
+                    if (response.ok) {
+                        if (!responseText) throw new Error("Empty response body from API");
+                        try {
+                            return JSON.parse(responseText);
+                        } catch(e) {
+                            const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+                            if (jsonMatch) return JSON.parse(jsonMatch[0]);
+                            throw new Error("Invalid JSON structure in response");
+                        }
+                    }
+                    
+                    if (response.status === 429 || response.status >= 500) {
+                        // Retryable
+                    } else {
+                        const errData = JSON.parse(responseText || "{}");
+                        throw new Error(errData.error?.message || `Request failed (${response.status})`);
+                    }
+                } catch (err) {
+                    if (i === maxRetries - 1) throw err;
+                }
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay *= 2;
+            }
+        }
+
+        async function runAIAnalysis() {
+            if (!state.imageData) return;
+            dom.btnAnalyze.disabled = true;
+            dom.loadingBar.classList.remove('hidden');
+            dom.critiqueSection.style.opacity = 0;
+            
+            const base64 = state.imageData.split(',')[1];
+            const metaInfo = state.meta ? JSON.stringify(state.meta) : "No Exif Data";
+            
+            const systemPrompt = `あなたは世界最高峰の写真批評家兼一級建築士です。数学的・建築的視点から冷徹に写真を解析し、精密な評価を行います。
+箇条書きは使わず、重要なキーワードは **太字** で強調して一つの物語のように記述してください。
+
+【厳命: 境界線トレース】
+1. 「structuralLines」は、被写体の物理的なエッジ（輪郭）のみをピクセル単位で正確になぞってください。
+2. 座標は画像左上 [0.0, 0.0]、右下 [1.0, 1.0] の相対的な浮動小数点数で返してください。
+3. 提供されたExifデータに基づき、レンズ設定の意図を厳格に評価してください。
+
+出力形式(JSON):
+- score: 0-100の数値
+- critique: 批評文（**太字**を含む）
+- vanishingPoints: [[x, y], ...]
+- horizons: [y, ...]
+- structuralLines: [[[x, y], [x, y], ...], ...] (パスの配列)`;
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ 
+                    role: "user",
+                    parts: [
+                        { text: `撮影データ: ${metaInfo}\n精密解析を実行してください。` }, 
+                        { inlineData: { mimeType: "image/png", data: base64 } }
+                    ] 
+                }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: { responseMimeType: "application/json" }
+            };
+
+            try {
+                const result = await fetchWithRetry(url, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify(payload) 
+                });
+                
+                if (result.error) throw new Error(result.error.message);
+                
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!text) {
+                    if (result.candidates?.[0]?.finishReason === "SAFETY") throw new Error("セーフティフィルターにより解析が中断されました。");
+                    throw new Error("AIからの応答が空でした。");
+                }
+                
+                let analysis;
+                try {
+                    analysis = JSON.parse(text);
+                } catch(e) {
+                    const jsonMatch = text.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) analysis = JSON.parse(jsonMatch[0]);
+                    else throw new Error("JSONデータの解析に失敗しました。");
+                }
+
+                state.analysis = analysis;
+                displayResults(state.analysis);
+            } catch (err) {
+                console.error(err);
+                showMessage("解析エラー: " + err.message);
+            } finally {
+                dom.loadingBar.classList.add('hidden');
+                dom.btnAnalyze.disabled = false;
+            }
+        }
+
+        function displayResults(data) {
+            dom.scoreVal.innerText = (data.score || 0).toString().padStart(2, '0');
+            dom.critiqueText.innerHTML = (data.critique || "").replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            dom.critiqueSection.style.opacity = 1;
+            dom.btnDownload.disabled = false;
+            drawAnalysisOverlay(data, true);
+        }
+
+        function drawAnalysisOverlay(data, isExport = false) {
+            const ctx = dom.overlayCanvas.getContext('2d');
+            const w = dom.overlayCanvas.width;
+            const h = dom.overlayCanvas.height;
+            if(!isExport) ctx.clearRect(0, 0, w, h);
+
+            const unit = w / 100;
+            const labelFont = `${Math.max(12, 1.5 * unit)}px "Tenor Sans"`;
+
+            ctx.shadowColor = "rgba(0,0,0,0.6)";
+            ctx.shadowBlur = 0.5 * unit;
+
+            if (data.horizons) {
+                ctx.setLineDash([1.8 * unit, 1.8 * unit]);
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+                ctx.lineWidth = 0.1 * unit;
+                data.horizons.forEach(hy => {
+                    const y = hy * h;
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+                    drawAnnotation(ctx, "HORIZON", 2 * unit, y - 1 * unit, labelFont);
+                });
+            }
+
+            ctx.setLineDash([]);
+            if (data.structuralLines) {
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+                ctx.lineWidth = 0.15 * unit;
+                data.structuralLines.forEach(path => {
+                    if (!path || path.length < 2) return;
+                    ctx.beginPath();
+                    ctx.moveTo(path[0][0] * w, path[0][1] * h);
+                    for (let i = 1; i < path.length; i++) { ctx.lineTo(path[i][0] * w, path[i][1] * h); }
+                    ctx.stroke();
+                });
+            }
+
+            if (data.vanishingPoints) {
+                data.vanishingPoints.forEach((vp, i) => {
+                    const vx = vp[0] * w, vy = vp[1] * h;
+                    ctx.fillStyle = "#FFBF00";
+                    ctx.beginPath(); ctx.arc(vx, vy, 0.6 * unit, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = "#FFBF00"; ctx.lineWidth = 0.18 * unit;
+                    ctx.beginPath(); ctx.moveTo(vx - 3 * unit, vy); ctx.lineTo(vx + 3 * unit, vy); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(vx, vy - 3 * unit); ctx.lineTo(vx, vy + 3 * unit); ctx.stroke();
+                    drawAnnotation(ctx, `VP-0${i+1}`, vx + 1.4 * unit, vy - 1.4 * unit, labelFont, "#FFBF00");
+                });
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        function drawAnnotation(ctx, text, x, y, font, color = "#FFF") {
+            ctx.save(); ctx.font = font; ctx.fillStyle = color; ctx.textAlign = "left";
+            ctx.fillText(text, x, y); ctx.restore();
+        }
+
+        function downloadBlueprint() {
+            if (!state.analysis) return;
+            const size = 2000;
+            const canvas = dom.exportCanvas;
+            canvas.width = size; canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, 0, size, size);
+
+            const margin = size * 0.08;
+            const photoAreaH = size * 0.58;
+            const imgW = state.image.naturalWidth, imgH = state.image.naturalHeight;
+            const scale = Math.min((size - margin*2) / imgW, photoAreaH / imgH);
+            const drawW = imgW * scale, drawH = imgH * scale;
+            const dx = (size - drawW) / 2, dy = margin;
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = imgW; tempCanvas.height = imgH;
+            const tCtx = tempCanvas.getContext('2d');
+            tCtx.filter = 'grayscale(1) brightness(0.9) contrast(1.1)';
+            tCtx.drawImage(state.image, 0, 0);
+            ctx.drawImage(tempCanvas, dx, dy, drawW, drawH);
+
+            ctx.save();
+            ctx.translate(dx, dy);
+            ctx.scale(scale, scale);
+            const oldCanvas = dom.overlayCanvas;
+            dom.overlayCanvas = { width: imgW, height: imgH, getContext: () => ctx }; 
+            drawAnalysisOverlay(state.analysis, true);
+            dom.overlayCanvas = oldCanvas; 
+            ctx.restore();
+
+            const reportY = dy + drawH + size * 0.04;
+            ctx.fillStyle = "#050505";
+            ctx.font = '300 120px "Tenor Sans"';
+            ctx.textAlign = "left";
+            ctx.fillText(state.analysis.score.toString().padStart(2, '0'), margin, reportY + 85);
+            
+            ctx.font = '100 24px "Manrope"';
+            ctx.fillStyle = "#999";
+            ctx.fillText("INTEGRATED ARCHITECTURAL SCORE", margin + 185, reportY + 45);
+
+            const critique = state.analysis.critique || "";
+            drawRichText(ctx, critique, margin, reportY + 170, size - margin*2, 48);
+
+            ctx.fillStyle = "#DDD";
+            ctx.textAlign = "right";
+            ctx.font = '22px "Tenor Sans"';
+            ctx.fillText("KI // AI PERSPECTIVE ANALYSIS V3.4", size - margin, size - margin/2);
+
+            const link = document.createElement('a');
+            link.download = `${state.filename}_KI_REPORT.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function drawRichText(ctx, text, x, y, maxWidth, lineHeight) {
+            const parts = text.split(/(\*\*.*?\*\*)/g);
+            let currentX = x; let currentY = y;
+            const baseFont = '26px "Shippori Mincho"';
+            const boldFont = '700 26px "Shippori Mincho"';
+            parts.forEach(part => {
+                const isBold = part.startsWith('**') && part.endsWith('**');
+                const content = isBold ? part.slice(2, -2) : part;
+                ctx.font = isBold ? boldFont : baseFont;
+                ctx.fillStyle = isBold ? "#000" : "#444";
+                const chars = content.split('');
+                chars.forEach(char => {
+                    const charW = ctx.measureText(char).width;
+                    if (currentX + charW > x + maxWidth) { currentX = x; currentY += lineHeight; }
+                    ctx.fillText(char, currentX, currentY); currentX += charW;
+                });
+            });
+        }
+    </script>
+</body>
+</html>
