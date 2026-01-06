@@ -64,7 +64,7 @@
             max-width: 100%; max-height: 100%;
         }
         #target-image {
-            max-width: 100%; max-height: 70vh; pointer-events: none;
+            max-width: 100%; max-height: 75vh; pointer-events: none;
             display: block; opacity: 0; transition: opacity 1s;
         }
 
@@ -118,6 +118,14 @@
         }
         @keyframes loading { from { left: -50%; } to { left: 100%; } }
 
+        .api-input-group {
+            padding: 10px; border: 1px solid #F0F0F0; background: #FAFAFA;
+        }
+        .api-input-group input {
+            width: 100%; background: transparent; border-bottom: 1px solid #DDD;
+            font-size: 9px; color: #666; padding: 4px 0; outline: none; font-family: monospace;
+        }
+
         #export-canvas { display: none; }
         .message-layer {
             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -135,7 +143,7 @@
             <span class="char-kanji font-kanji">軌</span>
             <span class="char-eng font-display">KI</span>
         </div>
-        <div class="mt-8 font-display text-[9px] opacity-0 animate-pulse tracking-[0.5em]">ARCHITECTURAL_ANALYSIS_V3.4</div>
+        <div class="mt-8 font-display text-[9px] opacity-0 animate-pulse tracking-[0.5em]">ARCHITECTURAL_ANALYSIS_V3.5</div>
     </div>
 
     <!-- UI Layer -->
@@ -152,7 +160,15 @@
             <section class="sidebar">
                 <div class="header">
                     <h1 class="font-display text-xs">KI / ARCHITECTURAL ANALYSIS</h1>
-                    <p class="text-[8px] text-[#BBB] mt-1 uppercase tracking-[0.4em]">Integrated Vision & Metadata Engine</p>
+                    <p class="text-[8px] text-[#BBB] mt-1 uppercase tracking-[0.4em]">Pixel-Perfect Boundary Engine</p>
+                </div>
+
+                <!-- API Key Config (Hidden if provided by env) -->
+                <div class="space-y-1" id="api-config">
+                    <span class="label-tech">Deployment_Settings</span>
+                    <div class="api-input-group">
+                        <input type="password" id="api-key-input" placeholder="ENTER GEMINI API KEY">
+                    </div>
                 </div>
 
                 <div class="space-y-1">
@@ -164,7 +180,7 @@
                     </div>
                 </div>
 
-                <div id="exif-summary" class="text-[9px] font-num text-[#999] tracking-widest px-2 py-1 border border-dashed border-[#F0F0F0] hidden">
+                <div id="exif-summary" class="text-[9px] font-num text-[#999] tracking-widest px-2 py-1 border border-dashed border-[#F0F0F0] hidden uppercase">
                     -
                 </div>
 
@@ -179,7 +195,7 @@
                     <span class="label-tech">Analysis_Report</span>
                     <div class="critique-box">
                         <div class="score-display"><span id="score-val">00</span><span class="text-xs ml-1 opacity-40">/ 100</span></div>
-                        <div id="critique-text" class="whitespace-pre-wrap text-[11px] leading-[1.8] font-kanji">Processing vision...</div>
+                        <div id="critique-text" class="whitespace-pre-wrap text-[11px] leading-[1.8] font-kanji">Analyzing pixel data...</div>
                     </div>
                 </div>
 
@@ -188,7 +204,7 @@
                     <button id="btn-download" class="btn-action" disabled>
                         Export Blueprint
                     </button>
-                    <div class="font-display text-[8px] text-[#EEE] tracking-[0.6em] text-center pb-8 lg:pb-0">SENSES_ARCHIVE_KI_3.4</div>
+                    <div class="font-display text-[8px] text-[#EEE] tracking-[0.6em] text-center pb-8 lg:pb-0">SENSES_ARCHIVE_KI_3.5</div>
                 </div>
             </section>
         </div>
@@ -199,11 +215,11 @@
 
     <script>
         /**
-         * SENSES : KI v3.4 | AI Architectural Analyzer
-         * Improved: Strict error handling, JSON extraction, and display sync.
+         * SENSES : KI v3.5 | AI Architectural Analyzer
+         * Improved: Robust fetch, JSON cleaning, and persistent coordinate sync.
          */
 
-        const apiKey = ""; 
+        const envApiKey = ""; 
         const state = {
             image: null,
             imageData: null,
@@ -229,11 +245,17 @@
             scoreVal: document.getElementById('score-val'),
             critiqueText: document.getElementById('critique-text'),
             exportCanvas: document.getElementById('export-canvas'),
-            msgBox: document.getElementById('message-box')
+            msgBox: document.getElementById('message-box'),
+            apiKeyInput: document.getElementById('api-key-input')
         };
 
         window.addEventListener('load', () => {
             lucide.createIcons();
+            
+            // Check for saved key on self-host
+            const savedKey = localStorage.getItem('koku_ki_apikey');
+            if(savedKey) dom.apiKeyInput.value = savedKey;
+
             dom.intro.addEventListener('click', () => {
                 dom.intro.classList.add('morphed');
                 setTimeout(() => {
@@ -249,6 +271,7 @@
             dom.fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
             dom.btnAnalyze.addEventListener('click', runAIAnalysis);
             dom.btnDownload.addEventListener('click', downloadBlueprint);
+            dom.apiKeyInput.addEventListener('change', (e) => localStorage.setItem('koku_ki_apikey', e.target.value));
             window.addEventListener('resize', syncCanvasSize);
         }
 
@@ -258,15 +281,15 @@
             
             EXIF.getData(file, function() {
                 const tags = {
-                    make: EXIF.getTag(this, "Make"),
-                    model: EXIF.getTag(this, "Model"),
-                    f: EXIF.getTag(this, "FNumber"),
-                    ss: EXIF.getTag(this, "ExposureTime"),
-                    iso: EXIF.getTag(this, "ISOSpeedRatings"),
-                    fl: EXIF.getTag(this, "FocalLength")
+                    make: EXIF.getTag(this, "Make") || "",
+                    model: EXIF.getTag(this, "Model") || "",
+                    f: EXIF.getTag(this, "FNumber") || "",
+                    ss: EXIF.getTag(this, "ExposureTime") || "",
+                    iso: EXIF.getTag(this, "ISOSpeedRatings") || "",
+                    fl: EXIF.getTag(this, "FocalLength") || ""
                 };
                 state.meta = tags;
-                const camStr = tags.model || tags.make || "";
+                const camStr = tags.model || tags.make || "Unknown Gear";
                 const settingsStr = tags.f ? `ƒ/${tags.f}   1/${Math.round(1/tags.ss)}s   ISO ${tags.iso}   ${Math.round(tags.fl)}mm` : "Metadata Sparse";
                 dom.exifSummary.innerText = `${camStr} | ${settingsStr}`.toUpperCase();
                 dom.exifSummary.classList.remove('hidden');
@@ -295,6 +318,7 @@
 
         function syncCanvasSize() {
             if(!state.image) return;
+            // Internal resolution matches physical image pixels
             dom.overlayCanvas.width = state.image.naturalWidth;
             dom.overlayCanvas.height = state.image.naturalHeight;
         }
@@ -315,21 +339,17 @@
                 try {
                     const response = await fetch(url, options);
                     const responseText = await response.text();
-                    
                     if (response.ok) {
-                        if (!responseText) throw new Error("Empty response body from API");
                         try {
-                            return JSON.parse(responseText);
+                            const json = JSON.parse(responseText);
+                            return json;
                         } catch(e) {
                             const jsonMatch = responseText.match(/\{[\s\S]*\}/);
                             if (jsonMatch) return JSON.parse(jsonMatch[0]);
-                            throw new Error("Invalid JSON structure in response");
+                            throw new Error("Invalid Response Format");
                         }
                     }
-                    
-                    if (response.status === 429 || response.status >= 500) {
-                        // Retryable
-                    } else {
+                    if (response.status !== 429 && response.status < 500) {
                         const errData = JSON.parse(responseText || "{}");
                         throw new Error(errData.error?.message || `Request failed (${response.status})`);
                     }
@@ -343,6 +363,9 @@
 
         async function runAIAnalysis() {
             if (!state.imageData) return;
+            const currentKey = envApiKey || dom.apiKeyInput.value;
+            if(!currentKey) { showMessage("API KEY IS MISSING"); return; }
+
             dom.btnAnalyze.disabled = true;
             dom.loadingBar.classList.remove('hidden');
             dom.critiqueSection.style.opacity = 0;
@@ -350,27 +373,27 @@
             const base64 = state.imageData.split(',')[1];
             const metaInfo = state.meta ? JSON.stringify(state.meta) : "No Exif Data";
             
-            const systemPrompt = `あなたは世界最高峰の写真批評家兼一級建築士です。数学的・建築的視点から冷徹に写真を解析し、精密な評価を行います。
-箇条書きは使わず、重要なキーワードは **太字** で強調して一つの物語のように記述してください。
+            const systemPrompt = `あなたは世界最高峰の写真批評家兼一級建築士です。写真を数学的・建築的視点から冷徹に解析し、精密な評価を行います。
+箇条書きは使わず、キーワードは **太字** で強調して一つの物語のように記述してください。
 
-【厳命: 境界線トレース】
+【境界線トレースの極意】
 1. 「structuralLines」は、被写体の物理的なエッジ（輪郭）のみをピクセル単位で正確になぞってください。
 2. 座標は画像左上 [0.0, 0.0]、右下 [1.0, 1.0] の相対的な浮動小数点数で返してください。
-3. 提供されたExifデータに基づき、レンズ設定の意図を厳格に評価してください。
+3. 撮影データ(Exif)に基づき、レンズ設定の意図（ボケ味、圧縮効果、収差）を厳格に評価してください。
 
 出力形式(JSON):
-- score: 0-100の数値
-- critique: 批評文（**太字**を含む）
+- score: 0-100
+- critique: 文章（**太字**を使用）
 - vanishingPoints: [[x, y], ...]
 - horizons: [y, ...]
-- structuralLines: [[[x, y], [x, y], ...], ...] (パスの配列)`;
+- structuralLines: [[[x, y], [x, y], ...], ...]`;
 
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${currentKey}`;
             const payload = {
                 contents: [{ 
                     role: "user",
                     parts: [
-                        { text: `撮影データ: ${metaInfo}\n精密解析を実行してください。` }, 
+                        { text: `Analysis Context: EXIF=${metaInfo}\n精密解析を開始してください。` }, 
                         { inlineData: { mimeType: "image/png", data: base64 } }
                     ] 
                 }],
@@ -385,28 +408,21 @@
                     body: JSON.stringify(payload) 
                 });
                 
-                if (result.error) throw new Error(result.error.message);
-                
                 const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (!text) {
-                    if (result.candidates?.[0]?.finishReason === "SAFETY") throw new Error("セーフティフィルターにより解析が中断されました。");
-                    throw new Error("AIからの応答が空でした。");
+                    if(result.candidates?.[0]?.finishReason === "SAFETY") throw new Error("Blocked by Safety Filter");
+                    throw new Error("AI returned an empty response");
                 }
                 
                 let analysis;
-                try {
-                    analysis = JSON.parse(text);
-                } catch(e) {
-                    const jsonMatch = text.match(/\{[\s\S]*\}/);
-                    if (jsonMatch) analysis = JSON.parse(jsonMatch[0]);
-                    else throw new Error("JSONデータの解析に失敗しました。");
-                }
+                try { analysis = JSON.parse(text); } 
+                catch(e) { const jsonMatch = text.match(/\{[\s\S]*\}/); if(jsonMatch) analysis = JSON.parse(jsonMatch[0]); else throw e; }
 
                 state.analysis = analysis;
                 displayResults(state.analysis);
             } catch (err) {
                 console.error(err);
-                showMessage("解析エラー: " + err.message);
+                showMessage("ANALYZE FAILED: " + err.message);
             } finally {
                 dom.loadingBar.classList.add('hidden');
                 dom.btnAnalyze.disabled = false;
@@ -434,13 +450,13 @@
             ctx.shadowBlur = 0.5 * unit;
 
             if (data.horizons) {
-                ctx.setLineDash([1.8 * unit, 1.8 * unit]);
+                ctx.setLineDash([2 * unit, 2 * unit]);
                 ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
                 ctx.lineWidth = 0.1 * unit;
                 data.horizons.forEach(hy => {
                     const y = hy * h;
                     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-                    drawAnnotation(ctx, "HORIZON", 2 * unit, y - 1 * unit, labelFont);
+                    drawAnnotation(ctx, "HORIZON", 2 * unit, y - 1.2 * unit, labelFont);
                 });
             }
 
@@ -463,9 +479,9 @@
                     ctx.fillStyle = "#FFBF00";
                     ctx.beginPath(); ctx.arc(vx, vy, 0.6 * unit, 0, Math.PI*2); ctx.fill();
                     ctx.strokeStyle = "#FFBF00"; ctx.lineWidth = 0.18 * unit;
-                    ctx.beginPath(); ctx.moveTo(vx - 3 * unit, vy); ctx.lineTo(vx + 3 * unit, vy); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(vx, vy - 3 * unit); ctx.lineTo(vx, vy + 3 * unit); ctx.stroke();
-                    drawAnnotation(ctx, `VP-0${i+1}`, vx + 1.4 * unit, vy - 1.4 * unit, labelFont, "#FFBF00");
+                    ctx.beginPath(); ctx.moveTo(vx - 3.5 * unit, vy); ctx.lineTo(vx + 3.5 * unit, vy); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(vx, vy - 3.5 * unit); ctx.lineTo(vx, vy + 3.5 * unit); ctx.stroke();
+                    drawAnnotation(ctx, `VP-0${i+1}`, vx + 1.6 * unit, vy - 1.6 * unit, labelFont, "#FFBF00");
                 });
             }
             ctx.shadowBlur = 0;
@@ -524,8 +540,8 @@
 
             ctx.fillStyle = "#DDD";
             ctx.textAlign = "right";
-            ctx.font = '22px "Tenor Sans"';
-            ctx.fillText("KI // AI PERSPECTIVE ANALYSIS V3.4", size - margin, size - margin/2);
+            ctx.font = '24px "Tenor Sans"';
+            ctx.fillText("KI // AI PERSPECTIVE ANALYSIS V3.5", size - margin, size - margin/2);
 
             const link = document.createElement('a');
             link.download = `${state.filename}_KI_REPORT.png`;
